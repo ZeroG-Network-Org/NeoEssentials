@@ -460,6 +460,38 @@ public class RichTextFormatter {
     }
 
     /**
+     * Length of one of {@link ChatFormatter}'s internal marker tags ({@code §HNAME§},
+     * {@code §/HNAME§}, {@code §ITEM§}, etc.) if {@code text} starts with one at {@code i}, or
+     * {@code 0} if not.
+     *
+     * <p>A chat-format template wrapping {@code {neoessentials_username}} in
+     * {@code <gradient:...>}/{@code <rainbow>} (e.g. {@code
+     * "<gradient:9D00FF-FF00AA>{neoessentials_username}</gradient>"}) has, by the time gradient/
+     * rainbow processing runs, already had that placeholder replaced with
+     * {@code §HNAME§<name>§/HNAME§} — {@link ChatFormatter#formatMessage} injects the marker
+     * before resolving any other placeholders or tags. Without this check, {@link
+     * #createMultiStopGradient}/{@link #createRainbow} treated every character of that marker
+     * (the literal {@code §}, and each letter of "HNAME") as ordinary visible text to color
+     * individually, same as {@code isFormatCodeAt} already protects {@code &}-codes from — which
+     * shredded the marker into fragments {@link ChatFormatter#buildComponentFromMarkup} could no
+     * longer recognize as a contiguous {@code §HNAME§...§/HNAME§} span, so it fell through to
+     * literal plain text instead of becoming an invisible clickable-name component (reported as
+     * the player's name literally showing "HNAME&lt;name&gt;/HNAME" in chat). Skipping the whole
+     * tag atomically here — the same treatment `&`-format codes already get — keeps it intact for
+     * {@code buildComponentFromMarkup} to find later, while the actual name text between the open
+     * and close tags still gets gradient/rainbow-colored normally.
+     */
+    private static int markerTagLengthAt(String text, int i) {
+        if (text.charAt(i) != '§') return 0;
+        for (String marker : ChatFormatter.INTERNAL_MARKUP_MARKERS) {
+            if (text.regionMatches(i, marker, 0, marker.length())) {
+                return marker.length();
+            }
+        }
+        return 0;
+    }
+
+    /**
      * Creates a per-character gradient string supporting 2+ color stops.
      * Spaces are passed through without coloring to preserve word separation.
      * {@code &l}/{@code &o}/etc. format codes are passed through as an atomic 2-character
@@ -474,6 +506,12 @@ public class RichTextFormatter {
             String hex = stops[0].toUpperCase();
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < text.length(); i++) {
+                int markerLen = markerTagLengthAt(text, i);
+                if (markerLen > 0) {
+                    sb.append(text, i, i + markerLen);
+                    i += markerLen - 1;
+                    continue;
+                }
                 if (isFormatCodeAt(text, i)) {
                     sb.append(text, i, i + 2);
                     i++;
@@ -486,9 +524,11 @@ public class RichTextFormatter {
             return sb.toString();
         }
 
-        // Count non-space, non-format-code characters for interpolation
+        // Count non-space, non-format-code, non-marker-tag characters for interpolation
         int visibleLen = 0;
         for (int i = 0; i < text.length(); i++) {
+            int markerLen = markerTagLengthAt(text, i);
+            if (markerLen > 0) { i += markerLen - 1; continue; }
             if (isFormatCodeAt(text, i)) { i++; continue; }
             if (text.charAt(i) != ' ') visibleLen++;
         }
@@ -498,6 +538,12 @@ public class RichTextFormatter {
         StringBuilder sb = new StringBuilder();
         int visibleIdx = 0;
         for (int i = 0; i < text.length(); i++) {
+            int markerLen = markerTagLengthAt(text, i);
+            if (markerLen > 0) {
+                sb.append(text, i, i + markerLen);
+                i += markerLen - 1;
+                continue;
+            }
             if (isFormatCodeAt(text, i)) {
                 sb.append(text, i, i + 2);
                 i++;
@@ -545,6 +591,14 @@ public class RichTextFormatter {
         StringBuilder sb = new StringBuilder();
         int colorIndex = 0;
         for (int i = 0; i < text.length(); i++) {
+            // See markerTagLengthAt()'s doc comment — same §HNAME§-shredding risk as the
+            // gradient colorer above applies here for <rainbow>{neoessentials_username}</rainbow>.
+            int markerLen = markerTagLengthAt(text, i);
+            if (markerLen > 0) {
+                sb.append(text, i, i + markerLen);
+                i += markerLen - 1;
+                continue;
+            }
             char c = text.charAt(i);
             if (c == ' ') { sb.append(c); continue; }
             int color = RAINBOW_COLORS[colorIndex % RAINBOW_COLORS.length];

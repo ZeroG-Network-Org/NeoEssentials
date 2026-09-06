@@ -211,7 +211,9 @@ public class ChatFormatter {
     // stripped from raw player input before it ever reaches processItemLinks/markupUrls/
     // markupMentions, or a forged marker would be rendered as a real, trusted-looking
     // clickable/hoverable component (e.g. impersonating another player's clickable name).
-    private static final String[] INTERNAL_MARKUP_MARKERS = {
+    // Package-private (not private) so RichTextFormatter's gradient/rainbow character-by-character
+    // colorers (same package) can skip over these atomically too — see their use there.
+    static final String[] INTERNAL_MARKUP_MARKERS = {
         "§ITEM§", "§/ITEM§", "§URL§", "§/URL§", "§MENTION§", "§/MENTION§",
         "§HNAME§", "§/HNAME§", "§HDNAME§", "§/HDNAME§"
     };
