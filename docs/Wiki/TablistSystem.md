@@ -348,6 +348,16 @@ If you'd rather have a different mod/plugin manage nametags entirely, set
 `nametagSettings.enabled` to `false` — NeoEssentials will still use the scoreboard team for
 tablist sorting/columns, it just won't set any prefix/suffix on it.
 
+> **Discord chat-bridge mods showing the rank prefix twice?** Vanilla Minecraft automatically
+> folds a scoreboard team's prefix/suffix into `Player.getDisplayName()` for any mod to read.
+> Some Discord bridges (e.g. SimpleDiscordLink's `%display_name%`/rank-sync) read that
+> already-prefixed display name AND separately re-resolve the same rank prefix themselves,
+> showing it twice in Discord even though it's correct in-game chat. Setting
+> `nametagSettings.enabled: false` here stops NeoEssentials from writing the prefix onto the
+> vanilla team at all, which starves that kind of integration of the pre-decorated name —
+> in-game chat is completely unaffected, since chat's own prefix comes from `chat.json`'s
+> `{ftbranks_prefix}`/`{neoessentials_prefix}` placeholders, a separate mechanism entirely.
+
 ---
 
 ## Independent Mode
