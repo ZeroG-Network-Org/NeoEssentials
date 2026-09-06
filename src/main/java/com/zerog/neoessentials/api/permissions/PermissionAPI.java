@@ -414,7 +414,17 @@ public class PermissionAPI {
         NeoLog.debug(LOGGER, LogCategory.PERMISSIONS, ">>> Using internal permission system");
 
         if (manager == null) {
-            LOGGER.warn("PermissionAPI.getPrefix: PermissionManager is null");
+            // When an external adapter IS configured (e.g. FTB Ranks, which never implements a
+            // prefix concept at all), landing here on every single call is the permanent,
+            // documented, expected state — PermissionSystem deliberately leaves the internal
+            // manager unset in that mode ("internal groups loaded but NOT USED"). Warning here
+            // used to fire on every tablist/placeholder refresh for every player for the entire
+            // life of the server, flooding the log with a line that looks like a failure but
+            // isn't one. Only warn when there is truly no permission system backing this call
+            // at all (no external adapter either) — that IS a real misconfiguration.
+            if (externalAdapter == null) {
+                LOGGER.warn("PermissionAPI.getPrefix: PermissionManager is null");
+            }
             return "";
         }
         PermissionUser user = manager.getUser(uuid);
@@ -501,7 +511,11 @@ public class PermissionAPI {
         // Internal system: either no external adapter is configured, or the external adapter
         // had no opinion for this player/group.
         if (manager == null) {
-            LOGGER.warn("PermissionAPI.getSuffix: PermissionManager is null");
+            // See getPrefix()'s identical comment — this is the permanent, expected state on an
+            // external-adapter server (e.g. FTB Ranks never implements suffix), not a failure.
+            if (externalAdapter == null) {
+                LOGGER.warn("PermissionAPI.getSuffix: PermissionManager is null");
+            }
             return "";
         }
         PermissionUser user = manager.getUser(uuid);

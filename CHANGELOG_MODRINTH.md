@@ -55,6 +55,9 @@ Starting from **v1.0.6** — earlier history (v1.0.5.x and before) is not carrie
   opt chat out of it specifically.
 - `/crate keys [player]` now lists every registered crate on its own line, including ones you
   have zero keys for, instead of only comma-joining the crates you actually held keys for.
+- Fixed the console being flooded with `PermissionManager is null` warnings on servers using an
+  external permission adapter with no prefix/suffix support (e.g. FTB Ranks) — that's the
+  expected state there, not a failure, and no longer logs a warning.
 - Hologram refresh/animation tick rates were hardcoded — now configurable via
   `hologram.refreshInterval`/`animationInterval` in `config.json`, same convention as tablist/
   scoreboard's `refreshInterval`. Applies with `/neoe reload`.
