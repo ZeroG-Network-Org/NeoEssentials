@@ -89,21 +89,6 @@ public class PermissionStorage {
                 currentGroupNames.size(), currentUserIds.size());
     }
 
-    /**
-     * True if {@code permissions.json} still exists on disk AND the active storage backend
-     * already has group/user data — meaning the one-time legacy import already ran and this
-     * file is no longer read at all (also always false while external permissions are active,
-     * since this storage isn't consulted at all in that mode). Used to warn admins who might
-     * otherwise keep editing a file that has no effect (see
-     * {@link com.zerog.neoessentials.util.AdminNotices}).
-     */
-    public static boolean isLegacyFileNowInert() {
-        if (com.zerog.neoessentials.permissions.PermissionSystem.isUsingExternal()) return false;
-        if (!Files.exists(FILE_PATH)) return false;
-        DataStore store = store();
-        return store.hasAnyData(GROUP_COLLECTION) || store.hasAnyData(USER_COLLECTION);
-    }
-
     public static void load(PermissionManager manager) throws IOException {
         // If using external permissions, do not load internal permission data.
         if (com.zerog.neoessentials.permissions.PermissionSystem.isUsingExternal()) {

@@ -230,30 +230,6 @@ public class NeoEssentials {
             }
         }
 
-        /**
-         * Warn admins once if kits.json and/or permissions.json still contain real data but are
-         * no longer being read — the one-time import into the active storage backend already
-         * ran on a previous boot, so further edits to either file now silently do nothing.
-         */
-        private static void checkLegacyDataFileNotice() {
-            java.util.List<String> body = new java.util.ArrayList<>();
-            if (com.zerog.neoessentials.kits.KitManager.getInstance().isLegacyKitsFileNowInert()) {
-                body.add("commands.neoessentials.admin_notice.legacy_data.kits");
-            }
-            if (com.zerog.neoessentials.permissions.PermissionStorage.isLegacyFileNowInert()) {
-                body.add("commands.neoessentials.admin_notice.legacy_data.permissions");
-            }
-            if (body.isEmpty()) return;
-
-            body.add("commands.neoessentials.admin_notice.legacy_data.explain");
-            body.add("commands.neoessentials.admin_notice.legacy_data.use_instead");
-            com.zerog.neoessentials.util.AdminNotices.queue(
-                "legacy_data",
-                "commands.neoessentials.admin_notice.legacy_data.title",
-                body.toArray(new String[0])
-            );
-        }
-
         @SubscribeEvent
         public static void onServerStarting(ServerStartingEvent event) {
             NeoLog.info(LOGGER, LogCategory.GENERAL, "════════════════════════════════════════════════════════════════");
@@ -267,13 +243,12 @@ public class NeoEssentials {
                 NeoLog.debug(LOGGER, LogCategory.GENERAL, "Config split check failed: {}", e.getMessage());
             }
 
-            // Check for legacy kits.json/permissions.json files that are no longer read (the
-            // one-time import into the active storage backend already ran) — editing them now
-            // silently does nothing, so warn admins instead of letting them find out the hard way.
+            // Standing "found a bug or need help?" notice — every boot, not just when something
+            // actually goes wrong (see SupportLinks.markProblemDetected() for that case).
             try {
-                checkLegacyDataFileNotice();
+                com.zerog.neoessentials.util.SupportLinks.queueGeneralHelpNotice();
             } catch (Exception e) {
-                NeoLog.debug(LOGGER, LogCategory.GENERAL, "Legacy data file check failed: {}", e.getMessage());
+                NeoLog.debug(LOGGER, LogCategory.GENERAL, "Queuing general help notice failed: {}", e.getMessage());
             }
 
             // Initialize permission system FIRST
@@ -559,17 +534,23 @@ public class NeoEssentials {
             // once" flag via compareAndSet, so checking it first would burn the one opportunity
             // on a non-admin joining before any admin does.
             if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player
-                    && isAdmin(player)
+                    && canSeeAdminNotices(player)
                     && com.zerog.neoessentials.util.AdminNotices.consumeIfPending()) {
                 com.zerog.neoessentials.util.AdminNotices.scheduleSendTo(player);
             }
         }
 
-        private static boolean isAdmin(net.minecraft.server.level.ServerPlayer player) {
-            return com.zerog.neoessentials.util.PermissionLevelCompat.hasPermission(player, 4) ||
-                com.zerog.neoessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "*") ||
-                com.zerog.neoessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "neoessentials.*") ||
-                com.zerog.neoessentials.api.permissions.PermissionAPI.hasPermission(player.getUUID(), "neoessentials.admin.*");
+        /**
+         * Gates admin-notice delivery on the dedicated {@code neoessentials.admin.notice}
+         * permission node instead of a hand-rolled OP/wildcard check — a group can now be
+         * granted (or explicitly denied) this specific node without needing full admin-wildcard
+         * access, and it still resolves through {@link com.zerog.neoessentials.api.permissions.PermissionAPI}'s
+         * normal chain (external adapter first, OP bypass, registry default of {@code false} —
+         * so a random player never sees these unless actually granted the node or OP'd).
+         */
+        private static boolean canSeeAdminNotices(net.minecraft.server.level.ServerPlayer player) {
+            return com.zerog.neoessentials.api.permissions.PermissionAPI.hasPermission(
+                player.getUUID(), "neoessentials.admin.notice");
         }
 
         @SubscribeEvent

@@ -34,6 +34,33 @@ public final class SupportLinks {
     }
 
     /**
+     * Queues the standing "found a bug or need help?" notice — unlike {@link
+     * #markProblemDetected()}, this doesn't require anything to have actually gone wrong; it's
+     * just where to go for support. Queued fresh every boot (no persisted id) via {@link
+     * AdminNotices#queue(Component, Component...)}, same as the console banner — this is
+     * standing reference information worth an admin seeing again on a later restart, not a
+     * one-time nag like the legacy-data/config-split notices.
+     */
+    public static void queueGeneralHelpNotice() {
+        AdminNotices.queue(Component.literal("§e§l  NEED HELP OR FOUND A BUG?"), generalHelpChatMessage());
+    }
+
+    /** Clickable in-game chat message for {@link #queueGeneralHelpNotice()} — same three links
+     *  as {@link #chatMessage()}, worded for "just checking in" rather than "something broke". */
+    private static Component generalHelpChatMessage() {
+        MutableComponent msg = Component.literal("[NE] ")
+            .withStyle(ChatFormatting.GOLD)
+            .append(Component.literal("Found a bug, or have a question? ")
+                .withStyle(ChatFormatting.YELLOW));
+        msg.append(link("[Support]", SUPPORT_URL));
+        msg.append(Component.literal(" "));
+        msg.append(link("[Discord]", DISCORD_URL));
+        msg.append(Component.literal(" "));
+        msg.append(link("[GitHub]", GITHUB_URL));
+        return msg;
+    }
+
+    /**
      * Plain-text console line(s) — terminals don't support click events, so this is just the
      * bare URLs. {@code prominent} switches between a quiet one-liner (always printed once at
      * startup) and a bordered warning block (printed additionally when a real problem is
