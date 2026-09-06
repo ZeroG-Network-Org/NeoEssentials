@@ -67,6 +67,7 @@ Starting from **v1.0.6** — earlier history (v1.0.5.x and before) is not carrie
   of the box) — only affects fresh installs, existing configs are untouched.
 
 ### Fixed
+- **2026-09-06** — Build 59 ([`ffaa874f`](https://github.com/ZeroG-Network-PTY-LTD/NeoEssentials/commit/ffaa874f416187d0ec7b9845bbf42d80d9fa3f09)) — Fixed a player's name showing as literal `HNAME<name>/HNAME` in chat instead of a clean clickable name when a chat-format template wrapped `{neoessentials_username}` in `<gradient:...>`/`<rainbow>` (the common way to give an FTB Ranks/LuckPerms rank a colored name). Fixes #70.
 - The startup admin-notice chat block (bug-report links, config split available, etc.) is now
   gated by a dedicated `neoessentials.admin.notice` permission node instead of a hardcoded
   OP/wildcard check, and all pending notices render as one combined block. Also removed the
