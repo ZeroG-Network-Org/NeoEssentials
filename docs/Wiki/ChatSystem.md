@@ -209,6 +209,49 @@ Example: `&#FF5500` for orange, `&#00FFCC` for mint.
 | Unicode escapes in the key: `"\u0026cgroup:fondateur"` | Color codes belong in the value string |
 | Missing reset after colored text | Add `&f` (white) or `&r` (reset) after the group name |
 
+> **Note** – Group keys are matched case-insensitively (`"group:VIP"` and `"group:vip"` both
+> resolve the same player), so casing in the key never matters — write it however's readable.
+
+---
+
+## Chat Formatting with FTB Ranks
+
+`"group:<name>"` keys work with **FTB Ranks** the same way they do with LuckPerms — `<name>`
+is the **rank's id** (the key it's defined under in FTB Ranks' own rank config, e.g. a rank
+block written as `SeasonedExplorer: { ... }` is matched by `"group:SeasonedExplorer"`, or
+equally `"group:seasonedexplorer"` — matching is case-insensitive). If a player holds more than
+one rank at once (FTB Ranks allows this, unlike LuckPerms' single primary group), the
+**highest-power** rank is used.
+
+```json
+"chat-format": {
+  "default":                "&7{neoessentials_username}&7: &f{MESSAGE}",
+  "group:seasonedexplorer": "✈&bSeasoned Explorer&r✈&b {neoessentials_username}&7: &f{MESSAGE}"
+}
+```
+
+### The `{ftbranks_prefix}` / `{ftbranks_suffix}` placeholders
+
+FTB Ranks doesn't have separate "prefix" and "suffix" fields the way LuckPerms does — instead a
+rank sets one `ftbranks.name_format` permission **value**, a template such as
+`"✈&bSeasoned Explorer&r✈&b {name}"` that FTB Ranks substitutes `{name}` into to build the
+player's styled name elsewhere (nameplate/tablist). NeoEssentials reads that same value and
+splits it on the `{name}` token — everything before it becomes `{ftbranks_prefix}`, everything
+after becomes `{ftbranks_suffix}` — so you can reuse a rank's existing `name_format` directly in
+chat without redefining it:
+
+```json
+"default": "{ftbranks_prefix}{neoessentials_username}{ftbranks_suffix}&7: &f{MESSAGE}"
+```
+
+For the example rank above (`name_format: "✈&bSeasoned Explorer&r✈&b {name}"`), this resolves
+to `{ftbranks_prefix}` = `"✈&bSeasoned Explorer&r✈&b "` and `{ftbranks_suffix}` = `""` (nothing
+follows `{name}` in that template). A rank with no `ftbranks.name_format` set at all falls
+through with empty prefix/suffix, same as a player with no LuckPerms meta configured.
+
+`{ftbranks_rank}` / `{ftbranks_group}` (equivalent aliases) resolve to the same rank id used for
+`"group:<name>"` key matching above.
+
 ---
 
 ## Per-Player Format Overrides
