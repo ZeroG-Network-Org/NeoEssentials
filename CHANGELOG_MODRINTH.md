@@ -67,6 +67,12 @@ Starting from **v1.0.6** — earlier history (v1.0.5.x and before) is not carrie
   of the box) — only affects fresh installs, existing configs are untouched.
 
 ### Fixed
+- FTB Ranks servers can now use `"group:<rank>"` chat-format keys and the
+  `{ftbranks_prefix}`/`{ftbranks_suffix}`/`{ftbranks_rank}`/`{ftbranks_group}` placeholders —
+  these never actually worked on FTB Ranks before (only LuckPerms). Group now resolves from the
+  player's highest-power rank; prefix/suffix come from that rank's `ftbranks.name_format` value.
+  Also fixed `"group:<name>"` keys being case-sensitive against the (always-lowercased) resolved
+  group name, which affected every permission backend, not just FTB Ranks.
 - `/permissions group <group> setprefix|setsuffix` no longer shows a raw "unexpected
   error" when the internal permission manager isn't active (e.g. an external permissions
   plugin like LuckPerms is in use) — it now explains why instead.

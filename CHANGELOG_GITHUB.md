@@ -159,6 +159,16 @@ Compatibility: **Minecraft 1.21.1 – 1.21.11 (`1.21.x`) · Minecraft 26.1–26.
   an existing config keeps whatever value it already has, same as any other config default.
 
 ### Fixed
+- **FTB Ranks servers can now use `"group:<rank>"` chat-format keys and the
+  `{ftbranks_prefix}`/`{ftbranks_suffix}`/`{ftbranks_rank}`/`{ftbranks_group}` placeholders** —
+  the FTB Ranks adapter never actually implemented a primary-group/prefix/suffix lookup (always
+  returned "no opinion"), so these silently never matched on FTB Ranks despite matching fine on
+  LuckPerms. Group is now resolved from the player's highest-power rank; prefix/suffix are read
+  from that rank's `ftbranks.name_format` permission value and split on the `{name}` token —
+  reusing whatever the server already configured there, no new setting needed. Also fixed
+  `"group:<name>"` keys being case-sensitive against the resolved group name (which is always
+  lowercased) — a key written with any uppercase, e.g. `"group:SeasonedExplorer"`, could never
+  match on any permission backend, not just FTB Ranks.
 - `/permissions group <group> setprefix|setsuffix` no longer surfaces a raw, unhelpful
   "unexpected error" when the internal permission manager isn't initialized (e.g. an
   external permissions plugin like LuckPerms is active) — it now explains why instead of
