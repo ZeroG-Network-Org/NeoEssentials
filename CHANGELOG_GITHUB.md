@@ -159,6 +159,12 @@ Compatibility: **Minecraft 1.21.1 – 1.21.11 (`1.21.x`) · Minecraft 26.1–26.
   an existing config keeps whatever value it already has, same as any other config default.
 
 ### Fixed
+- **The startup admin-notice chat block (bug-report links, config split available, etc.) is now
+  gated by a dedicated `neoessentials.admin.notice` permission node** instead of a hardcoded
+  OP-level-4/wildcard check — a group can be granted (or denied) visibility into these without
+  needing full admin-wildcard access. All pending notices for a boot also now render as one
+  combined block instead of a separate bordered section per notice. Also removed the "LEGACY
+  DATA FILE(S) NO LONGER READ" notice entirely.
 - **FTB Ranks servers can now use `"group:<rank>"` chat-format keys and the
   `{ftbranks_prefix}`/`{ftbranks_suffix}`/`{ftbranks_rank}`/`{ftbranks_group}` placeholders** —
   the FTB Ranks adapter never actually implemented a primary-group/prefix/suffix lookup (always

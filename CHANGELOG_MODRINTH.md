@@ -69,6 +69,10 @@ migration history) is not carried over.
   of the box) — only affects fresh installs, existing configs are untouched.
 
 ### Fixed
+- The startup admin-notice chat block (bug-report links, config split available, etc.) is now
+  gated by a dedicated `neoessentials.admin.notice` permission node instead of a hardcoded
+  OP/wildcard check, and all pending notices render as one combined block. Also removed the
+  "LEGACY DATA FILE(S) NO LONGER READ" notice entirely.
 - FTB Ranks servers can now use `"group:<rank>"` chat-format keys and the
   `{ftbranks_prefix}`/`{ftbranks_suffix}`/`{ftbranks_rank}`/`{ftbranks_group}` placeholders —
   these never actually worked on FTB Ranks before (only LuckPerms). Group now resolves from the
