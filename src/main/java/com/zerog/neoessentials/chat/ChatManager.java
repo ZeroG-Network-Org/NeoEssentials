@@ -66,7 +66,13 @@ public class ChatManager {
                     if (key.equalsIgnoreCase("default")) {
                         def = obj.get(key).getAsString();
                     } else {
-                        map.put(key, obj.get(key).getAsString());
+                        // Lowercased to match getChatFormat()'s lookup keys, which lowercase the
+                        // resolved group/world name before checking the map — without this, a
+                        // config key written with any uppercase (e.g. "group:SeasonedExplorer",
+                        // matching a rank/group's actual name casing) could never match, since
+                        // Map.containsKey() is exact-case. Case is irrelevant to the *value*, just
+                        // normalized on the way in so both sides of the lookup agree.
+                        map.put(key.toLowerCase(), obj.get(key).getAsString());
                     }
                 }
                 this.defaultChatFormat = def != null ? def : "{neoessentials_displayname}: {MESSAGE}";

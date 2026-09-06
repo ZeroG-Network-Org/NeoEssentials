@@ -38,6 +38,18 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     private Method resolvedMethod   = null;
     private Object resolvedInstance = null;
     private int    resolvedStrategy = 0;
+
+    // Extra API resolved independently of the hasPermission-strategy probe above, used for
+    // getPrefix()/getSuffix()/getPrimaryGroup()/getGroupWeight() — these all need
+    // FTBRanksAPI.getPermissionValue(ServerPlayer,String) (to read the RAW STRING value of the
+    // "ftbranks.name_format" node, not just a boolean) and FTBRanksAPI.manager().getRanks(player)
+    // (to find the player's ranks at all — FTB Ranks has no single "primary group" the way
+    // LuckPerms does). Kept separate from resolvedMethod/resolvedStrategy since those are
+    // strategy-numbered fallbacks specifically for boolean hasPermission() checks across FTB
+    // Ranks API versions, whereas these two methods are each looked up directly by exact
+    // signature and either exist or don't — no fallback strategy needed for them.
+    private Method ftbApiPermissionValueMethod = null;
+    private Method ftbApiManagerMethod         = null;
     // 1 = getPermissionValue(ServerPlayer,String) [static FTBRanksAPI] — 2101.1.x confirmed
     // 2 = getPermissionValue(ServerPlayer,String) [instance RankManager]
     // 3 = hasPermission(ServerPlayer,String)      [static]
@@ -66,6 +78,27 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
                 NeoLog.warn(LOGGER, LogCategory.PERMISSIONS,"╚══════════════════════════════════════════════════════════════╝");
             }
             probeApi();
+            resolveExtraApi();
+        }
+    }
+
+    /**
+     * Resolves {@code FTBRanksAPI.getPermissionValue(ServerPlayer, String)} and
+     * {@code FTBRanksAPI.manager()} directly, independent of which hasPermission-strategy
+     * {@link #probeApi()} settled on above. Both are confirmed present in the current
+     * (2101.1.x) API; if a future/older FTB Ranks build lacks either, the corresponding
+     * getPrefix()/getSuffix()/getPrimaryGroup()/getGroupWeight() calls just return their
+     * "no opinion" default (null / Integer.MIN_VALUE) rather than failing.
+     */
+    private void resolveExtraApi() {
+        try {
+            Class<?> apiClass = Class.forName("dev.ftb.mods.ftbranks.api.FTBRanksAPI");
+            ftbApiPermissionValueMethod = apiClass.getMethod("getPermissionValue",
+                    net.minecraft.server.level.ServerPlayer.class, String.class);
+            ftbApiManagerMethod = apiClass.getMethod("manager");
+        } catch (Exception e) {
+            NeoLog.debug(LOGGER, LogCategory.PERMISSIONS,
+                    "FTB Ranks extra API (getPermissionValue/manager) not resolvable: {}", e.getMessage());
         }
     }
 
@@ -289,10 +322,138 @@ public class FtbRanksAdapter implements ExternalPermissionAdapter {
     // ── ExternalPermissionAdapter extras ─────────────────────────────────────────
 
     @Override
-    public String getPrefix(UUID uuid) { return null; }
+    public String getPrefix(UUID uuid) {
+        String[] parts = splitNameFormat(uuid);
+        return parts != null ? parts[0] : null;
+    }
 
     @Override
-    public String getSuffix(UUID uuid) { return null; }
+    public String getSuffix(UUID uuid) {
+        String[] parts = splitNameFormat(uuid);
+        return parts != null ? parts[1] : null;
+    }
+
+    /**
+     * FTB Ranks has no separate prefix/suffix concept — instead a rank sets a single
+     * {@code ftbranks.name_format} permission VALUE, a template like
+     * {@code "&b[VIP]&r {name}"} that FTB Ranks itself substitutes {@code {name}} into to build
+     * the player's styled name elsewhere (nameplate/tablist). Splitting that template on the
+     * literal {@code "{name}"} token gives an equivalent prefix/suffix pair that plugs directly
+     * into NeoEssentials' existing {@code prefix + name + suffix} formatting model (chat format,
+     * tablist, {@code {ftbranks_prefix}}/{@code {ftbranks_suffix}} placeholders) with no new
+     * concept needed — it just reuses whatever the server already configured for
+     * {@code ftbranks.name_format}.
+     *
+     * @return {@code {prefix, suffix}}, or {@code null} if the player has no rank with that
+     *         node set (server offline lookups, or a rank that never configured it) — "no
+     *         opinion", matching every other adapter method's null-means-fall-through contract.
+     */
+    private String[] splitNameFormat(UUID uuid) {
+        if (!ftbRanksLoaded || ftbApiPermissionValueMethod == null) return null;
+        try {
+            var server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) return null;
+            net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) return null;
+
+            Object permissionValue = ftbApiPermissionValueMethod.invoke(null, player, "ftbranks.name_format");
+            if (permissionValue == null) return null;
+            Object asStringOpt = permissionValue.getClass().getMethod("asString").invoke(permissionValue);
+            if (!(asStringOpt instanceof java.util.Optional<?> opt) || opt.isEmpty()) return null;
+            String template = String.valueOf(opt.get());
+            if (template.isBlank()) return null;
+
+            int idx = template.indexOf("{name}");
+            if (idx < 0) return new String[]{template, ""};
+            return new String[]{template.substring(0, idx), template.substring(idx + "{name}".length())};
+        } catch (Exception e) {
+            NeoLog.debug(LOGGER, LogCategory.PERMISSIONS, "FTB Ranks name_format lookup failed for {}: {}", uuid, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public String getPrimaryGroup(UUID uuid) {
+        Object rank = getPrimaryRank(uuid);
+        return rank != null ? rankId(rank) : null;
+    }
+
+    @Override
+    public int getGroupWeight(UUID uuid) {
+        Object rank = getPrimaryRank(uuid);
+        if (rank == null) return Integer.MIN_VALUE;
+        Integer power = rankPower(rank);
+        return power != null ? power : Integer.MIN_VALUE;
+    }
+
+    /**
+     * Returns the player's highest-power FTB Rank, or {@code null} if they have none / FTB Ranks
+     * couldn't be queried. FTB Ranks lets a player hold multiple ranks simultaneously — there is
+     * no single exclusive "primary group" the way LuckPerms has one — so the highest
+     * {@code power} value is treated as the primary rank here, matching the ordering FTB Ranks
+     * itself uses when resolving conflicting permission values (a higher-power rank wins).
+     */
+    private Object getPrimaryRank(UUID uuid) {
+        if (!ftbRanksLoaded || ftbApiManagerMethod == null) return null;
+        try {
+            var server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) return null;
+            net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) return null;
+
+            Object rankManager = ftbApiManagerMethod.invoke(null);
+            if (rankManager == null) return null;
+            Object ranksObj = rankManager.getClass()
+                    .getMethod("getRanks", net.minecraft.server.level.ServerPlayer.class)
+                    .invoke(rankManager, player);
+            if (!(ranksObj instanceof java.util.List<?> ranks) || ranks.isEmpty()) return null;
+
+            Object best = null;
+            int bestPower = Integer.MIN_VALUE;
+            for (Object rank : ranks) {
+                Integer power = rankPower(rank);
+                int p = power != null ? power : 0;
+                if (best == null || p > bestPower) {
+                    best = rank;
+                    bestPower = p;
+                }
+            }
+            return best;
+        } catch (Exception e) {
+            NeoLog.debug(LOGGER, LogCategory.PERMISSIONS, "FTB Ranks getRanks lookup failed for {}: {}", uuid, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Rank id (matches the rank's key in FTB Ranks' own config, e.g. "SeasonedExplorer") — falls
+     *  back to the display name, then {@code toString()}, if a future API build renames the
+     *  accessor. */
+    private String rankId(Object rank) {
+        try {
+            Object id = rank.getClass().getMethod("getId").invoke(rank);
+            if (id != null) return id.toString();
+        } catch (Exception ignored) {
+            NeoLog.debug(LOGGER, LogCategory.PERMISSIONS, "FTB Rank object has no getId(), trying getName()");
+        }
+        try {
+            Object name = rank.getClass().getMethod("getName").invoke(rank);
+            if (name != null) return name.toString();
+        } catch (Exception ignored) {
+            NeoLog.debug(LOGGER, LogCategory.PERMISSIONS, "FTB Rank object has no getName() either, falling back to toString()");
+        }
+        return rank.toString();
+    }
+
+    /** Rank power (priority) — null if the Rank object exposes no such accessor. */
+    private Integer rankPower(Object rank) {
+        try {
+            Object power = rank.getClass().getMethod("getPower").invoke(rank);
+            if (power instanceof Number n) return n.intValue();
+        } catch (Exception ignored) {
+            NeoLog.debug(LOGGER, LogCategory.PERMISSIONS, "FTB Rank object has no getPower()");
+        }
+        return null;
+    }
 
     @Override
     public void reload() { /* FTB Ranks handles its own reload */ }
