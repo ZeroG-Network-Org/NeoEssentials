@@ -137,6 +137,12 @@ Compatibility: **Minecraft 1.21.1 – 1.21.11 (`1.21.x`) · Minecraft 26.1–26.
   the player has zero keys for — previously it comma-joined only the crates they actually held
   keys for onto one line, so a crate you had none of didn't show up at all, making it unclear
   whether it existed. Also now uses each crate's chat display name for consistency.
+- Servers using an external permission adapter with no prefix/suffix concept (FTB Ranks) had
+  the console permanently flooded with `PermissionAPI.getPrefix/getSuffix: PermissionManager is
+  null` WARN lines — one pair per player on every tablist/placeholder refresh, for the entire
+  life of the server. That's the expected, documented state when an external adapter is active
+  (the internal permission manager is deliberately never loaded in that mode), not a failure —
+  the warning now only fires when there's genuinely no permission system backing the call at all.
 - Holograms' placeholder-refresh and animation/spin/hover tick rates were hardcoded (1s / 50ms)
   — now configurable via `hologram.refreshInterval`/`animationInterval` in `config.json` (in
   server ticks, same convention as tablist/scoreboard's `refreshInterval`), defaulting to `20`/
