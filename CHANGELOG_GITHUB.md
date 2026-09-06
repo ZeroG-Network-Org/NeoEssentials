@@ -159,6 +159,7 @@ Compatibility: **Minecraft 1.21.1 – 1.21.11 (`1.21.x`) · Minecraft 26.1–26.
   an existing config keeps whatever value it already has, same as any other config default.
 
 ### Fixed
+- **2026-09-06** — Build 59 ([`ffaa874f`](https://github.com/ZeroG-Network-PTY-LTD/NeoEssentials/commit/ffaa874f416187d0ec7b9845bbf42d80d9fa3f09)) — Fixed a player's name showing as literal `HNAME<name>/HNAME` in chat instead of a clean clickable name when a chat-format template wrapped `{neoessentials_username}` in `<gradient:...>`/`<rainbow>` (the common way to give an FTB Ranks/LuckPerms rank a colored name) — the internal clickable-name marker was getting shredded character-by-character by the gradient/rainbow colorer, which didn't know to skip over it as one atomic unit the way it already did for `&`-format codes. Fixes #70.
 - **The startup admin-notice chat block (bug-report links, config split available, etc.) is now
   gated by a dedicated `neoessentials.admin.notice` permission node** instead of a hardcoded
   OP-level-4/wildcard check — a group can be granted (or denied) visibility into these without
