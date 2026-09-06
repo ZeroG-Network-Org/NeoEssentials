@@ -4,6 +4,7 @@ name: Build & Release Jar
 # investigated extensively with no root cause found in repo/org config; this re-save plus an
 # Actions disable/re-enable cycle on the repo is the test to see if it clears whatever internal
 # GitHub-side dispatch state was stuck). Remove this note once confirmed working again.
+# (credential test 2)
 
 # Builds the mod jar for a dev branch and publishes it to ONE shared GitHub Release per build
 # number, tagged <mod_version>-build-<build number> (e.g. 1.0.5-build-49) — all three branches' jars
