@@ -731,6 +731,9 @@ public class PermissionRegistry {
         // ── Placeholder system ────────────────────────────────────────────────
         register("neoessentials.admin.placeholders", "Manage and test the placeholder system (/placeholder)", PermissionCategory.ADMIN, false);
 
+        // ── Admin notices ────────────────────────────────────────────────────
+        register("neoessentials.admin.notice", "Receive the startup admin-notice chat block on join (bug-report links, config split available, legacy data files, etc.)", PermissionCategory.ADMIN, false);
+
         // ── Fun / miscellaneous commands ─────────────────────────────────────
         register("neoessentials.firework", "Edit held firework rockets", PermissionCategory.PLAYER, false);
         register("neoessentials.firework.fire", "Launch firework rockets with /firework fire", PermissionCategory.PLAYER, false);

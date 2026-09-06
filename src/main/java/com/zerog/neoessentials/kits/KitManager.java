@@ -61,17 +61,6 @@ public class KitManager {
     }
 
     /**
-     * True if {@code kits.json} still exists on disk AND the active storage backend already
-     * has kit data — meaning the one-time legacy import already ran and this file is no longer
-     * read at all. Used to warn admins who might otherwise keep editing a file that has no
-     * effect (see {@link com.zerog.neoessentials.util.AdminNotices}).
-     */
-    public boolean isLegacyKitsFileNowInert() {
-        File f = com.zerog.neoessentials.util.ResourceUtil.getConfigFile("kits.json");
-        return f.exists() && store.hasAnyData(KIT_COLLECTION);
-    }
-
-    /**
      * Initializes the kit manager by loading all kits from configuration.
      */
     public synchronized void initialize() {

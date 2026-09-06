@@ -48,7 +48,7 @@ public class MessageUtil {
     
     // Language version tracking - increment when translations change
     private static final String LANG_VERSION_KEY = "_langVersion";
-    private static final int CURRENT_LANG_VERSION = 24; // v24 — crate.keys_header/keys_line/keys_none_configured, removed crate.keys_list
+    private static final int CURRENT_LANG_VERSION = 25; // v25 — admin_notice.header (combined admin-notices block)
 
     /**
      * Keys with a confirmed VALUE bug (wrong/missing {n} argument, argument-order swap, etc.)

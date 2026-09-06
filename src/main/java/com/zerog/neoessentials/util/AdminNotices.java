@@ -135,18 +135,29 @@ public final class AdminNotices {
         notifyThread.start();
     }
 
+    /**
+     * Renders every pending notice as ONE combined block — a single outer border/header, each
+     * notice's own title as a sub-heading underneath, rather than a full bordered block per
+     * notice. Previously each notice got its own border+title+border, so an admin joining after
+     * several conditions fired at once (config split available AND legacy data files AND a real
+     * error, say) saw three separate bordered blocks stacked back to back, reading as three
+     * unrelated alerts rather than one consolidated "here's what's up" summary.
+     */
     private static void sendAllTo(ServerPlayer player) {
+        List<Notice> notices = new ArrayList<>();
         Notice notice;
-        boolean first = true;
-        while ((notice = PENDING.poll()) != null) {
-            if (!first) player.sendSystemMessage(Component.literal(""));
-            first = false;
-            player.sendSystemMessage(MessageUtil.component("commands.neoessentials.admin_notice.border"));
-            player.sendSystemMessage(notice.title());
-            player.sendSystemMessage(MessageUtil.component("commands.neoessentials.admin_notice.border"));
+        while ((notice = PENDING.poll()) != null) notices.add(notice);
+        if (notices.isEmpty()) return;
+
+        player.sendSystemMessage(MessageUtil.component("commands.neoessentials.admin_notice.border"));
+        player.sendSystemMessage(MessageUtil.component("commands.neoessentials.admin_notice.header"));
+        player.sendSystemMessage(MessageUtil.component("commands.neoessentials.admin_notice.border"));
+
+        for (Notice n : notices) {
             player.sendSystemMessage(Component.literal(""));
-            if (notice.id() != null) markShown(notice.id());
-            for (Component line : notice.body()) {
+            player.sendSystemMessage(n.title());
+            if (n.id() != null) markShown(n.id());
+            for (Component line : n.body()) {
                 player.sendSystemMessage(line);
             }
         }
