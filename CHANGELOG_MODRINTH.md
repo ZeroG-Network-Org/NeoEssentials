@@ -11,6 +11,7 @@ migration history) is not carried over.
 ## [1.0.6] — 2026-08-27
 
 ### Added
+- **2026-09-07** — Build 60 ([`8398265d`](https://github.com/ZeroG-Network-PTY-LTD/NeoEssentials/commit/8398265d2c084df3d6c8fe683a179a369071e67f)) — Per-event Discord channel routing for join/leave/mute/AFK/advancement/private-message events (new `discordEventChannels` config section) — previously only chat could route to a specific Discord channel. Works with SDLink, Mc2Discord, and DCIntegration (which additionally gained join/leave routing for the first time).
 - Sidebar scoreboard system — `/scoreboard` with config-driven boards, conditions,
   animation, group/player overrides, a toggle command, and a dashboard endpoint.
 - General leaderboard system — `/leaderboard` (`/lb`), with `money`/`kills`/`mob_kills`/
