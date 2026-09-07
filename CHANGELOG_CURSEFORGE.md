@@ -11,6 +11,7 @@ migration history) is not carried over.
 ## [1.0.6] — 2026-08-27
 
 ### Added
+- **2026-09-07** — Build 61 ([`5cee258b`](https://github.com/ZeroG-Network-PTY-LTD/NeoEssentials/commit/5cee258b5b63d77dfda75fd48c1812cdce1ff483)) — Generic Discord webhook relay — a new `webhookUrl` field alongside `channelId` lets NeoEssentials post events straight to a Discord webhook over plain HTTPS with no bridge mod installed at all. Chat/advancement messages impersonate the sending player. Takes effect immediately on `/neoe reload`, no restart needed.
 - **2026-09-07** — Build 60 ([`5deb4d67`](https://github.com/ZeroG-Network-PTY-LTD/NeoEssentials/commit/5deb4d67e80056055a9ed87f15dc112f691f8d67)) — Per-event Discord channel routing for join/leave/mute/AFK/advancement/private-message events (new `discordEventChannels` config section) — previously only chat could route to a specific Discord channel. Works with SDLink, Mc2Discord, and DCIntegration (which additionally gained join/leave routing for the first time).
 - Sidebar scoreboard system — `/scoreboard` with config-driven boards, conditions,
   animation, group/player overrides, a toggle command, and a dashboard endpoint.
