@@ -290,6 +290,44 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     }
 
     @Override
+    public void onAfkStatusChange(ServerPlayer player, boolean isAfk, String reason, String discordChannelId) {
+        if (!isReady()) return;
+        try {
+            String status = isAfk ? "is now AFK" : "is no longer AFK";
+            String safeReason = DiscordTextSanitizer.truncate(reason, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
+            String text = String.format("%s %s%s", player.getName().getString(), status,
+                (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                // "afk" is just a subscription-matching keyword to sendInfoMessage — same
+                // mechanism already proven by the "moderation" category above, not a category
+                // Mc2Discord has special built-in knowledge of. An admin adds "afk" to a
+                // channel's subscriptions list in mc2discord.toml to receive these.
+                MessageManager.sendInfoMessage("afk", text).subscribe();
+            }
+        } catch (Exception e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay AFK event via Mc2Discord", e);
+        }
+    }
+
+    @Override
+    public void onPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message, String discordChannelId) {
+        if (!isReady()) return;
+        try {
+            String text = String.format("Private message to %s: %s", recipient.getName().getString(),
+                DiscordTextSanitizer.truncate(DiscordTextSanitizer.sanitizeMentions(message), DiscordTextSanitizer.DISCORD_TEXT_LIMIT));
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, sender.getName().getString() + ": " + text);
+            } else {
+                MessageManager.sendInfoMessage("privateMessage", sender.getName().getString() + ": " + text).subscribe();
+            }
+        } catch (Exception e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay private message via Mc2Discord", e);
+        }
+    }
+
+    @Override
     public Optional<String> getLinkedDiscordId(UUID minecraftUuid) {
         if (!isReady()) return Optional.empty();
         try {
@@ -322,8 +360,25 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
         return List.copyOf(nativeRelayWarnings);
     }
 
+    /**
+     * Reuses SDLink's {@code discordEmbedTemplate.authorIconUrl} config key (same top-level
+     * section, same {@code {uuid}} placeholder convention as {@code EmbedTemplate} there) rather
+     * than a hardcoded URL, so an admin who already changed it for SDLink doesn't need a second,
+     * Mc2Discord-specific setting to get the same effect — and so a self-hosted avatar service
+     * can replace mc-heads.net for both adapters at once.
+     */
     private String avatarFor(ServerPlayer player) {
-        return "https://mc-heads.net/avatar/" + player.getUUID();
+        String template = "https://mc-heads.net/avatar/{uuid}";
+        try {
+            com.google.gson.JsonObject cfg = com.zerog.neoessentials.config.ConfigManager.getInstance().getConfig("discordEmbedTemplate");
+            if (cfg.has("authorIconUrl")) {
+                String configured = cfg.get("authorIconUrl").getAsString();
+                if (configured != null && !configured.isBlank()) template = configured;
+            }
+        } catch (Exception e) {
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "Could not read discordEmbedTemplate.authorIconUrl, using default avatar URL", e);
+        }
+        return template.replace("{uuid}", player.getUUID().toString());
     }
 
     @Override
