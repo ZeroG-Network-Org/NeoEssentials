@@ -1449,6 +1449,7 @@ public class ConfigManager {
     public static final String LEADERBOARD_CONFIG = "leaderboard.json";
     public static final String VOTIFIER_CONFIG = "votifier.json";
     public static final String CRATES_CONFIG = "crates.json";
+    public static final String DISCORD_ROLE_SYNC_CONFIG = "discordrolesync.json";
 
     // Config version tracking - increment when structure changes
     private static final String CONFIG_VERSION_KEY = "_configVersion";
@@ -1561,6 +1562,7 @@ public class ConfigManager {
         put(LEADERBOARD_CONFIG, 3);    // v3  — add entryFormat/headerFormat/icon board styling fields
         put(VOTIFIER_CONFIG, 1);       // v1  — initial Votifier vote-listener config
         put(CRATES_CONFIG, 1);         // v1  — initial Crates config
+        put(DISCORD_ROLE_SYNC_CONFIG, 1); // v1 — initial Discord role sync config
     }};
 
     /**
@@ -2151,7 +2153,7 @@ public class ConfigManager {
      */
     private void ensureDefaultConfigs() {
         String[] requiredConfigs = new String[] {
-            MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG, ANIMATIONS_CONFIG, SCOREBOARD_CONFIG, LEADERBOARD_CONFIG, VOTIFIER_CONFIG, CRATES_CONFIG
+            MAIN_CONFIG, ECONOMY_CONFIG, PERMISSIONS_CONFIG, KITS_CONFIG, DISCORD_AUTH_CONFIG, TABLIST_CONFIG, ANIMATIONS_CONFIG, SCOREBOARD_CONFIG, LEADERBOARD_CONFIG, VOTIFIER_CONFIG, CRATES_CONFIG, DISCORD_ROLE_SYNC_CONFIG
         };
 
         // Check if split configs are enabled
