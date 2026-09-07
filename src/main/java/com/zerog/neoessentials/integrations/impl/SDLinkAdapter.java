@@ -38,6 +38,9 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
     private boolean nativeJoinEnabled = false;
     private boolean nativeLeaveEnabled = false;
     private boolean nativeAdvancementEnabled = false;
+    // Human-readable form of whichever of the above got set, for the dashboard's Discord status
+    // panel — see getNativeRelayWarnings(). Populated once, at the same time as the booleans.
+    private final List<String> nativeRelayWarnings = new java.util.ArrayList<>();
 
     @Override
     public String getName() {
@@ -122,6 +125,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
                         "NeoEssentials be the one formatting these instead, set '{}' to a non-conflicting " +
                         "value under [chat] in that file and restart.",
                         check.key(), check.description(), check.key());
+                    nativeRelayWarnings.add("SDLink's own 'chat." + check.key() + "' is enabled — " + check.description());
                 }
             }
         } catch (Exception e) {
@@ -468,6 +472,11 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         // permission sync isn't achievable through this adapter without reaching into
         // SDLink's internal (non-API) classes, which is exactly what this rewrite avoids.
         return List.of();
+    }
+
+    @Override
+    public List<String> getNativeRelayWarnings() {
+        return List.copyOf(nativeRelayWarnings);
     }
 
     private DiscordAuthor authorFor(ServerPlayer player) {

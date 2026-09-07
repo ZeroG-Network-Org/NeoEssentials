@@ -303,6 +303,7 @@ public class ChatIntegrationManager {
             info.put("name",    adapter.getName());
             info.put("enabled", adapter.isEnabled());
             info.put("ready",   adapter.isReady());
+            info.put("nativeRelayWarnings", adapter.getNativeRelayWarnings());
             result.add(info);
         }
         return result;
