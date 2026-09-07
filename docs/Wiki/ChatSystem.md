@@ -582,11 +582,34 @@ channel**, using the `discord` object nested inside that channel's entry under
 | `discord.enabled` | Relay this channel's Minecraft chat to the given Discord channel |
 | `discord.channelId` | Discord channel ID to relay to |
 
-There is no separate top-level `discord` config section — relay settings live under each
-channel. If a channel has a `permission` requirement, players without it are excluded from the
+Chat's own relay settings live under each channel, not a separate top-level section — but
+non-chat events (join/leave/mute/AFK/private messages) aren't tied to any one NeoEssentials
+channel, so they get their own top-level `discordEventChannels` section instead:
+
+```json
+"discordEventChannels": {
+  "join":           { "enabled": true,  "channelId": "123456789012345678" },
+  "leave":          { "enabled": true,  "channelId": "123456789012345678" },
+  "mute":           { "enabled": true,  "channelId": "987654321098765432" },
+  "afk":             { "enabled": false, "channelId": "" },
+  "advancement":    { "enabled": false, "channelId": "" },
+  "privateMessage": { "enabled": false, "channelId": "" }
+}
+```
+
+Each entry works the same way as a chat channel's `discord.enabled`/`discord.channelId` —
+`enabled: false` or a blank `channelId` means "let whichever bridge mod is installed route this
+event to its own natively-configured default channel instead," exactly as before this section
+existed. Setting both lets you, for example, send joins/leaves to a `#server-log` channel while
+keeping mutes in a private `#mod-log` channel, independent of chat's own per-channel routing.
+Works the same way across SDLink/Mc2Discord/DCIntegration (support varies slightly per adapter —
+DCIntegration in particular only relays join/leave through this override, since it otherwise
+covers those events entirely on its own via its native chat mixins).
+
+If a chat channel has a `permission` requirement, players without it are excluded from the
 Discord relay as well as in-game delivery.
 
-Works standalone (no relay) if Simple Discord Link is not installed.
+Works standalone (no relay) if none of SDLink/Mc2Discord/DCIntegration is installed.
 
 > **SDLink has its own native chat/join/leave/advancement broadcasters, independent of
 > NeoEssentials.** SDLink's own config (`config/simple-discord-link/simple-discord-link.toml`,

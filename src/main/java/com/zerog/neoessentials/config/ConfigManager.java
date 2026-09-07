@@ -1455,7 +1455,13 @@ public class ConfigManager {
 
     // Expected versions for each config file (must match the version in JAR resources)
     private static final java.util.Map<String, Integer> EXPECTED_CONFIG_VERSIONS = new java.util.HashMap<>() {{
-        put(MAIN_CONFIG, 50);          // v50 — renamed hologram.refreshInterval to
+        put(MAIN_CONFIG, 51);          // v51 — added "discordEventChannels": per-event-type
+                                        //       Discord channel routing (join/leave/mute/afk/
+                                        //       advancement/privateMessage) for the chat-bridge
+                                        //       adapters (SDLink/Mc2Discord/DCIntegration) —
+                                        //       previously only chat messages could be routed to
+                                        //       a specific channel via chat.channels.*.discord.
+        // v50 — renamed hologram.refreshInterval to
                                         //       pollIntervalTicks for clarity (it was being
                                         //       confused with each hologram's own, unrelated,
                                         //       seconds-based refreshInterval); see
