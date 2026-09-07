@@ -11,6 +11,8 @@ import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +30,17 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
 
     private boolean loaded = false;
 
+    // Whether Mc2Discord's OWN native broadcaster is enabled for each event type — detected once
+    // at startup by detectNativeRelayConflicts() and used to SKIP this adapter's own default-route
+    // send for that event, instead of double-posting. See that method's Javadoc for why, and
+    // SDLinkAdapter's equivalent fields/detectNativeRelayConflicts() for the identical pattern —
+    // this is the same fix, adapted to Mc2Discord's very different (per-channel subscription-list,
+    // not flat boolean) config shape.
+    private boolean nativeChatEnabled = false;
+    private boolean nativeJoinEnabled = false;
+    private boolean nativeLeaveEnabled = false;
+    private boolean nativeAdvancementEnabled = false;
+
     @Override
     public String getName() {
         return "Mc2Discord";
@@ -38,10 +51,90 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
         loaded = ModList.get().isLoaded("mc2discord");
         if (loaded) {
             NeoLog.info(LOGGER, LogCategory.DISCORD, "Mc2Discord mod detected, integration enabled.");
+            detectNativeRelayConflicts();
         } else {
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "Mc2Discord mod not found, integration disabled.");
         }
         return loaded;
+    }
+
+    /**
+     * Mc2Discord relays chat/join/leave/advancement to Discord entirely on its own, independent
+     * of NeoEssentials, whenever ANY configured Discord channel subscribes to the matching event
+     * type — unlike SDLink's flat per-event booleans, Mc2Discord's {@code config/mc2discord.toml}
+     * has a {@code [[channels.channels]]} array of tables, each with its own
+     * {@code subscriptions = [...]} list of type strings ({@code "chat"}, {@code
+     * "player_connect"}/{@code "player_disconnect"} for join/leave, {@code "player_advancement"}
+     * — confirmed directly from Mc2Discord's own bytecode, not guessed). Running both this
+     * adapter's default-route send AND Mc2Discord's own native relay for the same event posts it
+     * to Discord twice — the exact same class of bug fixed for SDLink, just never covered here.
+     * <p>
+     * This is a best-effort scan (not a real TOML parse): it isolates each {@code
+     * [[channels.channels]]} block's raw lines by tracking table-header boundaries, then checks
+     * the WHOLE block's text for each subscription keyword as a quoted string — correct for both
+     * an inline {@code subscriptions = ["chat"]} and a multi-line array, since every line inside
+     * the block gets concatenated before the keyword check runs. Fails safe (both sides could
+     * send) if the file is missing or the scan throws, rather than silently going dark.
+     */
+    private void detectNativeRelayConflicts() {
+        try {
+            java.nio.file.Path cfg = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get()
+                .resolve("config").resolve("mc2discord.toml");
+            if (!java.nio.file.Files.exists(cfg)) return;
+
+            List<String> channelBlocks = new ArrayList<>();
+            StringBuilder current = null;
+            for (String line : java.nio.file.Files.readAllLines(cfg)) {
+                String trimmed = line.trim();
+                if (trimmed.equals("[[channels.channels]]")) {
+                    if (current != null) channelBlocks.add(current.toString());
+                    current = new StringBuilder();
+                    continue;
+                }
+                if (current != null && trimmed.startsWith("[")) {
+                    // A different table header — this channel block has ended.
+                    channelBlocks.add(current.toString());
+                    current = null;
+                    continue;
+                }
+                if (current != null) current.append(line).append('\n');
+            }
+            if (current != null) channelBlocks.add(current.toString());
+
+            String allSubscriptions = String.join("\n", channelBlocks);
+            record ConflictingKey(String subscriptionKey, String description, Runnable onDetected) {}
+            List<ConflictingKey> checks = List.of(
+                new ConflictingKey("\"chat\"",
+                    "relays EVERY Minecraft chat message to its own subscribed Discord channel(s), " +
+                    "entirely independent of NeoEssentials' chat.channels.*.discord relay — NeoEssentials' " +
+                    "own DEFAULT-route chat relay (no explicit per-channel Discord ID) is now suppressed to " +
+                    "avoid a duplicate; per-channel overrides to a specific Discord ID still send normally",
+                    () -> nativeChatEnabled = true),
+                new ConflictingKey("\"player_connect\"",
+                    "posts its own player-join message natively — NeoEssentials' own join relay through " +
+                    "this adapter is now suppressed to avoid a duplicate",
+                    () -> nativeJoinEnabled = true),
+                new ConflictingKey("\"player_disconnect\"",
+                    "posts its own player-leave message natively — NeoEssentials' own leave relay through " +
+                    "this adapter is now suppressed to avoid a duplicate",
+                    () -> nativeLeaveEnabled = true),
+                new ConflictingKey("\"player_advancement\"",
+                    "posts its own advancement message natively — NeoEssentials' own advancement relay " +
+                    "through this adapter is now suppressed to avoid a duplicate",
+                    () -> nativeAdvancementEnabled = true)
+            );
+            for (ConflictingKey check : checks) {
+                if (allSubscriptions.contains(check.subscriptionKey())) {
+                    check.onDetected().run();
+                    NeoLog.warn(LOGGER, LogCategory.DISCORD, "Mc2Discord has a channel subscribed to {} in " +
+                        "config/mc2discord.toml. That {}. If you'd rather NeoEssentials be the one formatting " +
+                        "this instead, remove {} from that channel's subscriptions list and restart.",
+                        check.subscriptionKey(), check.description(), check.subscriptionKey());
+                }
+            }
+        } catch (Exception e) {
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "Could not check Mc2Discord's config for a conflicting native chat relay: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -71,7 +164,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
                 NeoLog.debug(LOGGER, LogCategory.DISCORD, "Mc2Discord: relaying chat from '{}' directly to Discord channel '{}'",
                     player.getName().getString(), discordChannelId);
                 sendToChannel(discordChannelId, player.getName().getString() + ": " + cleanMessage);
-            } else {
+            } else if (!nativeChatEnabled) {
                 NeoLog.debug(LOGGER, LogCategory.DISCORD, "Mc2Discord: relaying chat from '{}' via default chat route",
                     player.getName().getString());
                 MessageManager.sendChatMessage(cleanMessage, player.getName().getString(), avatarFor(player)).subscribe();
@@ -132,7 +225,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
             String text = player.getName().getString() + " joined the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
-            } else {
+            } else if (!nativeJoinEnabled) {
                 MessageManager.sendInfoMessage("join", text).subscribe();
             }
         } catch (Exception e) {
@@ -147,7 +240,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
             String text = player.getName().getString() + " left the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
-            } else {
+            } else if (!nativeLeaveEnabled) {
                 MessageManager.sendInfoMessage("leave", text).subscribe();
             }
         } catch (Exception e) {
@@ -162,7 +255,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
             String text = player.getName().getString() + " earned the advancement " + advancementName;
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
-            } else {
+            } else if (!nativeAdvancementEnabled) {
                 MessageManager.sendInfoMessage("advancement", text).subscribe();
             }
         } catch (Exception e) {
