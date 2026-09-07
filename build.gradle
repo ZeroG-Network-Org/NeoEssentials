@@ -333,6 +333,12 @@ dependencies {
     compileOnly 'curse.maven:mc2discord-325235:7595200'
     compileOnly 'curse.maven:dcintegration-324952:5426795'
 
+    // NightConfig TOML — always present at runtime (NeoForge's own ModConfigSpec depends on it,
+    // confirmed on the dev server's classpath as com.electronwill.night-config:{toml,core}:3.8.2)
+    // — used by SDLinkAdapter's detectNativeRelayConflicts() to actually parse
+    // simple-discord-link.toml instead of a best-effort line/regex scan.
+    compileOnly 'com.electronwill.night-config:toml:3.8.2'
+
     // SG Economy API — real compile-time dependency for the VaultEconomy adapter
     // (see vault/impl/SGEconomyAdapter.java), same runtime-optional posture as above.
     compileOnly 'curse.maven:sg-economy-api-1446971:8176623'
