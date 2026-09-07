@@ -617,6 +617,32 @@ Discord relay as well as in-game delivery.
 Works standalone (no relay) if none of SDLink/Mc2Discord/DCIntegration/a configured webhook is
 present.
 
+### Rich embeds for non-chat events (SDLink)
+
+`discordEmbedTemplate` (see above) already builds a full styled embed for chat messages routed
+to a specific Discord channel. As of build 65, the same treatment extends to join/leave/mute/
+AFK/advancement events — each gets its own nested override with sensible built-in defaults:
+
+```json
+"discordEmbedTemplate": {
+  "enabled": true,
+  "authorName": "{player}",
+  "...": "... (chat's own top-level fields, unchanged) ...",
+  "join":        { "enabled": true, "description": "**{player}** joined the server", "color": "#57F287", "showTimestamp": true },
+  "leave":       { "enabled": true, "description": "**{player}** left the server", "color": "#ED4245", "showTimestamp": true },
+  "mute":        { "enabled": true, "description": "{message}", "color": "#FEE75C" },
+  "afk":         { "enabled": true, "description": "{message}" },
+  "advancement": { "enabled": true, "description": "**{player}** earned the advancement **{message}**", "color": "#FAA61A", "showTimestamp": true }
+}
+```
+
+Only applies to a channel-override send (a specific `discordEventChannels.<event>.channelId`
+configured) — same condition as chat's own embed. `{message}` means something different per
+event: unused for join/leave, the full built status line for mute/AFK, and just the advancement's
+name for advancement. Set an event's `enabled` to `false` to fall back to a plain text line for
+just that event type. Currently SDLink-only — Mc2Discord/DCIntegration still send plain text for
+these events.
+
 ### Generic Webhook relay (no bridge mod required)
 
 Every `channelId` field above needs a real Discord bot (SDLink, Mc2Discord, or DCIntegration)
