@@ -1298,7 +1298,39 @@
     "footerText": "",
     "footerIconUrl": "",
     // Show the current time as the embed's timestamp
-    "showTimestamp": false
+    "showTimestamp": false,
+    // Per-event-type overrides below — same fields as above (any field left out falls back to
+    // that event's own built-in default, NOT the chat template above). Only used by SDLink so
+    // far, for the same explicit-channel-override case chat's own embed above covers.
+    // {message} here means: join/leave - unused; mute/afk - the full built status line;
+    // advancement - just the advancement's name.
+    "join": {
+      "enabled": true,
+      "description": "**{player}** joined the server",
+      "color": "#57F287",
+      "showTimestamp": true
+    },
+    "leave": {
+      "enabled": true,
+      "description": "**{player}** left the server",
+      "color": "#ED4245",
+      "showTimestamp": true
+    },
+    "mute": {
+      "enabled": true,
+      "description": "{message}",
+      "color": "#FEE75C"
+    },
+    "afk": {
+      "enabled": true,
+      "description": "{message}"
+    },
+    "advancement": {
+      "enabled": true,
+      "description": "**{player}** earned the advancement **{message}**",
+      "color": "#FAA61A",
+      "showTimestamp": true
+    }
   },
 
   /* ----------------------------------------------------------------
