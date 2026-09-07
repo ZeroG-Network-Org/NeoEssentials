@@ -126,44 +126,62 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     }
 
     @Override
-    public void onPlayerJoin(ServerPlayer player) {
+    public void onPlayerJoin(ServerPlayer player, String discordChannelId) {
         if (!isReady()) return;
         try {
-            MessageManager.sendInfoMessage("join", player.getName().getString() + " joined the server").subscribe();
+            String text = player.getName().getString() + " joined the server";
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                MessageManager.sendInfoMessage("join", text).subscribe();
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay join event via Mc2Discord", e);
         }
     }
 
     @Override
-    public void onPlayerQuit(ServerPlayer player) {
+    public void onPlayerQuit(ServerPlayer player, String discordChannelId) {
         if (!isReady()) return;
         try {
-            MessageManager.sendInfoMessage("leave", player.getName().getString() + " left the server").subscribe();
+            String text = player.getName().getString() + " left the server";
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                MessageManager.sendInfoMessage("leave", text).subscribe();
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay quit event via Mc2Discord", e);
         }
     }
 
     @Override
-    public void onPlayerAdvancement(ServerPlayer player, String advancementName) {
+    public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
         if (!isReady()) return;
         try {
-            MessageManager.sendInfoMessage("advancement",
-                player.getName().getString() + " earned the advancement " + advancementName).subscribe();
+            String text = player.getName().getString() + " earned the advancement " + advancementName;
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                MessageManager.sendInfoMessage("advancement", text).subscribe();
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay advancement event via Mc2Discord", e);
         }
     }
 
     @Override
-    public void onPlayerMute(ServerPlayer player, String reason, boolean isMuted) {
+    public void onPlayerMute(ServerPlayer player, String reason, boolean isMuted, String discordChannelId) {
         if (!isReady()) return;
         try {
             String action = isMuted ? "muted" : "unmuted";
-            MessageManager.sendInfoMessage("moderation",
-                String.format("%s has been %s%s", player.getName().getString(), action,
-                    reason != null && !reason.isEmpty() ? " (Reason: " + reason + ")" : "")).subscribe();
+            String text = String.format("%s has been %s%s", player.getName().getString(), action,
+                reason != null && !reason.isEmpty() ? " (Reason: " + reason + ")" : "");
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                MessageManager.sendInfoMessage("moderation", text).subscribe();
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay mute event via Mc2Discord", e);
         }

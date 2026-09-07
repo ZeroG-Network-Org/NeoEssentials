@@ -166,23 +166,52 @@ public class ChatIntegrationManager {
     }
 
     /**
+     * Resolves the configured Discord channel override for a non-chat event type, from
+     * {@code discordEventChannels.<eventKey>} in config.json — see that section's own comment
+     * for why this exists (only chat messages had per-channel Discord routing before this).
+     * Returns {@code null} (meaning "let the adapter/bridge mod route to its own default") when
+     * the section is missing, the event key isn't present, {@code enabled} is false, or
+     * {@code channelId} is blank — every one of those is treated as "not configured", not an
+     * error, since this feature is entirely opt-in.
+     * @param eventKey one of "join"/"leave"/"mute"/"afk"/"advancement"/"privateMessage"
+     */
+    private static String resolveEventChannelId(String eventKey) {
+        try {
+            com.google.gson.JsonObject config = com.zerog.neoessentials.config.ConfigManager.getInstance()
+                .getConfig(com.zerog.neoessentials.config.ConfigManager.MAIN_CONFIG);
+            if (!config.has("discordEventChannels")) return null;
+            com.google.gson.JsonObject section = config.getAsJsonObject("discordEventChannels");
+            if (!section.has(eventKey)) return null;
+            com.google.gson.JsonObject event = section.getAsJsonObject(eventKey);
+            if (!event.has("enabled") || !event.get("enabled").getAsBoolean()) return null;
+            if (!event.has("channelId")) return null;
+            String channelId = event.get("channelId").getAsString();
+            return (channelId != null && !channelId.isBlank()) ? channelId : null;
+        } catch (Exception e) {
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "Could not read discordEventChannels.{}: {}", eventKey, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Broadcast a private message event to all registered adapters
      * @param sender The sender
-     * @param recipient The recipient  
+     * @param recipient The recipient
      * @param message The message content
      */
     public static void broadcastPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message) {
         recordEvent("pm", sender.getName().getString(), recipient.getName().getString(), "private-messages", message);
+        String discordChannelId = resolveEventChannelId("privateMessage");
         for (ChatIntegrationAdapter adapter : adapters) {
             try {
-                adapter.onPrivateMessage(sender, recipient, message);
+                adapter.onPrivateMessage(sender, recipient, message, discordChannelId);
             } catch (Exception e) {
                 NeoLog.error(LOGGER, LogCategory.DISCORD, "Error in chat integration adapter " +
                     adapter.getName() + " while handling a private message", e);
             }
         }
     }
-    
+
     /**
      * Broadcast a player mute event to all registered adapters
      * @param player The muted player
@@ -192,16 +221,17 @@ public class ChatIntegrationManager {
     public static void broadcastMuteEvent(ServerPlayer player, String reason, boolean isMuted) {
         recordEvent("mute", player.getName().getString(), null, "moderation",
                     (isMuted ? "muted" : "unmuted") + (reason != null && !reason.isEmpty() ? ": " + reason : ""));
+        String discordChannelId = resolveEventChannelId("mute");
         for (ChatIntegrationAdapter adapter : adapters) {
             try {
-                adapter.onPlayerMute(player, reason, isMuted);
+                adapter.onPlayerMute(player, reason, isMuted, discordChannelId);
             } catch (Exception e) {
                 NeoLog.error(LOGGER, LogCategory.DISCORD, "Error in chat integration adapter " +
                     adapter.getName() + " while handling a mute event", e);
             }
         }
     }
-    
+
     /**
      * Broadcast an AFK status change to all registered adapters
      * @param player The player
@@ -211,41 +241,44 @@ public class ChatIntegrationManager {
     public static void broadcastAfkEvent(ServerPlayer player, boolean isAfk, String reason) {
         recordEvent("afk", player.getName().getString(), null, "chat",
                     (isAfk ? "went AFK" : "returned") + (isAfk && reason != null && !reason.isEmpty() ? ": " + reason : ""));
+        String discordChannelId = resolveEventChannelId("afk");
         for (ChatIntegrationAdapter adapter : adapters) {
             try {
-                adapter.onAfkStatusChange(player, isAfk, reason);
+                adapter.onAfkStatusChange(player, isAfk, reason, discordChannelId);
             } catch (Exception e) {
                 NeoLog.error(LOGGER, LogCategory.DISCORD, "Error in chat integration adapter " +
                     adapter.getName() + " while handling an AFK status change", e);
             }
         }
     }
-    
+
     /**
      * Broadcast a player join event to all registered adapters
      * @param player The joining player
      */
     public static void broadcastPlayerJoin(ServerPlayer player) {
         recordEvent("join", player.getName().getString(), null, "chat", "joined the server");
+        String discordChannelId = resolveEventChannelId("join");
         for (ChatIntegrationAdapter adapter : adapters) {
             try {
-                adapter.onPlayerJoin(player);
+                adapter.onPlayerJoin(player, discordChannelId);
             } catch (Exception e) {
                 NeoLog.error(LOGGER, LogCategory.DISCORD, "Error in chat integration adapter " +
                     adapter.getName() + " while handling a player join event", e);
             }
         }
     }
-    
+
     /**
      * Broadcast a player quit event to all registered adapters
      * @param player The quitting player
      */
     public static void broadcastPlayerQuit(ServerPlayer player) {
         recordEvent("quit", player.getName().getString(), null, "chat", "left the server");
+        String discordChannelId = resolveEventChannelId("leave");
         for (ChatIntegrationAdapter adapter : adapters) {
             try {
-                adapter.onPlayerQuit(player);
+                adapter.onPlayerQuit(player, discordChannelId);
             } catch (Exception e) {
                 NeoLog.error(LOGGER, LogCategory.DISCORD, "Error in chat integration adapter " +
                     adapter.getName() + " while handling a player quit event", e);

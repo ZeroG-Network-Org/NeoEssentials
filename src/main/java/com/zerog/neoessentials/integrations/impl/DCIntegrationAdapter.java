@@ -24,17 +24,18 @@ import java.util.UUID;
  * command handling (ChatMixin, PlayerManagerMixin, NetworkHandlerMixin, CommandManagerMixin)
  * and relays those events to Discord entirely on its own, to whatever channel its own config
  * (general.botChannel / advanced.chatOutputChannelID) points at — this adapter has no
- * visibility into or control over that path. onPlayerJoin/onPlayerQuit are deliberately left
- * unimplemented, since calling DiscordIntegration.sendMessage() for those would double-post
- * alongside DCIntegration's own mixin-driven relay.
+ * visibility into or control over that path.
  *
- * onPlayerChat IS implemented, but ONLY acts when a NeoEssentials chat channel has a specific
- * discord.channelId configured (e.g. a private staff channel) — that is additive, not
- * duplicative, since DCIntegration's own native relay has no concept of NeoEssentials channels
- * and only ever posts to its own single configured channel. When discordChannelId is null (the
- * channel is configured to just use "the default" — most channels), this deliberately does
- * nothing at all, exactly as before, to avoid double-posting against DCIntegration's own
- * mixin-driven relay of the SAME message.
+ * onPlayerChat/onPlayerJoin/onPlayerQuit are all implemented, but ONLY act when an explicit
+ * Discord channel override is configured (chat's own per-channel discord.channelId, or
+ * discordEventChannels.join/leave in config.json) — that is additive, not duplicative, since
+ * DCIntegration's own native relay has no concept of either and only ever posts to its own
+ * single configured channel. When no override is configured (the common case), all three
+ * deliberately do nothing, to avoid double-posting against DCIntegration's own mixin-driven
+ * relay of the SAME event. onPlayerMute/onAfkStatusChange/onPlayerAdvancement remain
+ * unimplemented (no override path exists for them here yet) — DCIntegration has no native
+ * relay for those event types to begin with, so there'd be no double-post to avoid; they're
+ * simply not built out for this adapter yet.
  */
 public class DCIntegrationAdapter implements ChatIntegrationAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(DCIntegrationAdapter.class);
@@ -80,6 +81,30 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
             // Catches Errors too — see JdaChannelSender's Javadoc for why a missing/incompatible
             // JDA on the classpath surfaces as a LinkageError here, not a plain Exception.
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay chat message via DCIntegration", e);
+        }
+    }
+
+    @Override
+    public void onPlayerJoin(ServerPlayer player, String discordChannelId) {
+        if (!isReady() || discordChannelId == null || discordChannelId.isBlank()) return;
+        try {
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying join for '{}' to Discord channel '{}' (additive override — native relay untouched)",
+                player.getName().getString(), discordChannelId);
+            sendToChannel(discordChannelId, player.getName().getString() + " joined the server");
+        } catch (Throwable e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay join event via DCIntegration", e);
+        }
+    }
+
+    @Override
+    public void onPlayerQuit(ServerPlayer player, String discordChannelId) {
+        if (!isReady() || discordChannelId == null || discordChannelId.isBlank()) return;
+        try {
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying quit for '{}' to Discord channel '{}' (additive override — native relay untouched)",
+                player.getName().getString(), discordChannelId);
+            sendToChannel(discordChannelId, player.getName().getString() + " left the server");
+        } catch (Throwable e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay quit event via DCIntegration", e);
         }
     }
 
