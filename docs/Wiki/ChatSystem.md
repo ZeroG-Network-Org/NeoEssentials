@@ -607,9 +607,12 @@ Each entry works the same way as a chat channel's `discord.*` fields above —
 route this event to its own natively-configured default channel instead," exactly as before this
 section existed. Setting both lets you, for example, send joins/leaves to a `#server-log` channel
 while keeping mutes in a private `#mod-log` channel, independent of chat's own per-channel
-routing. Works the same way across SDLink/Mc2Discord/DCIntegration (support varies slightly per
-adapter — DCIntegration in particular only relays join/leave through this override, since it
-otherwise covers those events entirely on its own via its native chat mixins).
+routing. Works the same way across SDLink/Mc2Discord for all six event types. **DCIntegration
+supports every event through this explicit-channel-override path too** (as of build 67) —
+join/leave/mute/AFK/advancement — but only ever additively: it never has a default-route
+fallback for any of them, and for advancement specifically it's suppressing a real duplicate
+(DCIntegration relays advancements to its own default channel natively on its own, independent
+of NeoEssentials, whenever a player is linked and its `advancementMessage` template is set).
 
 If a chat channel has a `permission` requirement, players without it are excluded from the
 Discord relay as well as in-game delivery.
