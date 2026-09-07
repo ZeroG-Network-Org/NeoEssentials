@@ -24,6 +24,7 @@ Compatibility: **Minecraft 1.21.1 – 1.21.11 (`1.21.x`) · Minecraft 26.1–26.
 ## [1.0.6] — 2026-08-27
 
 ### Added
+- **2026-09-07** — Build 60 ([`e7a908bc`](https://github.com/ZeroG-Network-PTY-LTD/NeoEssentials/commit/e7a908bc77afcd69e0f9aeb2df46336b6b26a6ff)) — **Per-event Discord channel routing** for join/leave/mute/AFK/advancement/private-message events, via a new `discordEventChannels` config section — previously only chat messages could be routed to a specific Discord channel (`chat.channels.<name>.discord.channelId`); every other event type was locked to whichever single channel each bridge mod's own native config pointed at. Lets you, for example, send joins/leaves to a `#server-log` channel while keeping mutes in a private `#mod-log` channel. Supported by SDLink and Mc2Discord for all six event types; DCIntegration additionally gained join/leave routing (previously unavailable there at all, to avoid duplicating its native mixin-driven relay — the new routing is additive-only, so it doesn't touch that native relay).
 - **Sidebar scoreboard system** — `/scoreboard toggle|reload|enable|disable|info|preview|
   board list|set title|set line|player ...|group ...`. Config-driven named boards with
   priority-ordered conditions (`perm:`, `world:`, placeholder comparisons), per-line
