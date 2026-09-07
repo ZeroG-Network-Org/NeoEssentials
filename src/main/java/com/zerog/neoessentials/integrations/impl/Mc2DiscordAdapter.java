@@ -1,6 +1,7 @@
 package com.zerog.neoessentials.integrations.impl;
 
 import com.zerog.neoessentials.integrations.ChatIntegrationAdapter;
+import com.zerog.neoessentials.integrations.DiscordTextSanitizer;
 import com.zerog.neoessentials.logging.LogCategory;
 import com.zerog.neoessentials.logging.NeoLog;
 import fr.denisd3d.mc2discord.core.Mc2Discord;
@@ -153,8 +154,9 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     public void onPlayerChat(ServerPlayer player, String channel, String message, String formattedMessage, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String cleanMessage = com.zerog.neoessentials.integrations.DiscordTextSanitizer.sanitizeMentions(
+            String cleanMessage = DiscordTextSanitizer.sanitizeMentions(
                 message.replaceAll("§[0-9a-fk-or]", ""));
+            cleanMessage = DiscordTextSanitizer.truncate(cleanMessage, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 // Same rationale as SDLinkAdapter's equivalent fix: sendChatMessage() always
                 // posts wherever Mc2Discord's OWN config routes chat, ignoring this parameter
@@ -252,7 +254,8 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " earned the advancement " + advancementName;
+            String text = player.getName().getString() + " earned the advancement " +
+                DiscordTextSanitizer.truncate(advancementName, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else if (!nativeAdvancementEnabled) {
@@ -268,8 +271,9 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
         if (!isReady()) return;
         try {
             String action = isMuted ? "muted" : "unmuted";
+            String safeReason = DiscordTextSanitizer.truncate(reason, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             String text = String.format("%s has been %s%s", player.getName().getString(), action,
-                reason != null && !reason.isEmpty() ? " (Reason: " + reason + ")" : "");
+                safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else {
