@@ -652,6 +652,39 @@ needed, unlike a newly-installed bridge mod.
 > corresponding key under `[chat]` in SDLink's own config to `false` (`advancementMessages` to
 > `"NEVER"`) and restart.
 
+> **Mc2Discord has the same kind of native relay, and gets the same conflict detection.** If any
+> channel in `config/mc2discord.toml` is subscribed to `"chat"`/`"player_connect"`/
+> `"player_disconnect"`/`"player_advancement"`, Mc2Discord relays that event to Discord on its
+> own — **as of build 62, NeoEssentials detects this at startup and skips its own default-route
+> send for that event type**, exactly like the SDLink handling above. A channel-override send
+> (`discordChannelId` set) always still goes through regardless. Remove the relevant subscription
+> from `mc2discord.toml` and restart if you'd rather NeoEssentials format that event instead.
+
+### Discord Role → Permission Group Sync
+
+Separate from the chat/event relay above — see `discordrolesync.json`. Maps a Discord role's
+snowflake ID to a NeoEssentials permission group:
+
+```json
+"discordRoleSync": {
+  "enabled": false,
+  "intervalSeconds": 300,
+  "roleGroupMap": {
+    "123456789012345678": "vip"
+  }
+}
+```
+
+When enabled, a linked player holding one of the mapped Discord roles is set to the matching
+permission group (highest `priority` wins if they hold more than one mapped role). Re-checked
+periodically (`intervalSeconds`) and immediately on join — this only ever grants/upgrades a
+group, it never demotes a player back to default if they no longer hold a mapped role.
+
+Requires NeoEssentials' own internal permission manager (not LuckPerms/FTB Ranks — this can't
+write into an external plugin's groups) and **DCIntegration specifically** — it's currently the
+only bridge mod this can read a linked player's Discord role list through (SDLink's role lookup
+is a dead end without a public API for it; Mc2Discord isn't wired up yet).
+
 ---
 
 ## Data Files
