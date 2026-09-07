@@ -1455,7 +1455,12 @@ public class ConfigManager {
 
     // Expected versions for each config file (must match the version in JAR resources)
     private static final java.util.Map<String, Integer> EXPECTED_CONFIG_VERSIONS = new java.util.HashMap<>() {{
-        put(MAIN_CONFIG, 51);          // v51 — added "discordEventChannels": per-event-type
+        put(MAIN_CONFIG, 52);          // v52 — added "webhookUrl" alongside "channelId" in every
+                                        //       chat.channels.*.discord block and
+                                        //       discordEventChannels.* entry — the new no-bot-
+                                        //       required generic webhook relay adapter reads
+                                        //       these; channelId-based bridge mods ignore them.
+        // v51 — added "discordEventChannels": per-event-type
                                         //       Discord channel routing (join/leave/mute/afk/
                                         //       advancement/privateMessage) for the chat-bridge
                                         //       adapters (SDLink/Mc2Discord/DCIntegration) —

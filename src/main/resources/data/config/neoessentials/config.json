@@ -1183,7 +1183,10 @@
         "default": false,
         "discord": {
           "enabled": false,
-          "channelId": ""
+          "channelId": "",
+          // No-bot-required alternative to channelId — a Discord webhook URL (Discord:
+          // Server Settings > Integrations > Webhooks). If both are set, both fire.
+          "webhookUrl": ""
         }
       },
       "local": {
@@ -1197,7 +1200,8 @@
           // Usually disabled: local chat is proximity-based, discord bridge is global
           "enabled": false,
           // Discord channel ID. Leave empty to use the default 'chat' channel.
-          "channelId": ""
+          "channelId": "",
+          "webhookUrl": ""
         }
       },
       "global": {
@@ -1211,7 +1215,8 @@
         "default": false,
         "discord": {
           "enabled": true,
-          "channelId": ""
+          "channelId": "",
+          "webhookUrl": ""
         }
       },
       "staff": {
@@ -1224,7 +1229,8 @@
         "discord": {
           "enabled": true,
           // Use a private staff-only Discord channel here (recommended)
-          "channelId": ""
+          "channelId": "",
+          "webhookUrl": ""
         }
       }
     },
@@ -1303,14 +1309,16 @@
      enabled:false) to let whichever bridge mod (SDLink/Mc2Discord/
      DCIntegration) route that event to its own natively-configured default
      channel instead — this only overrides where NeoEssentials explicitly
-     routes an event when a channelId is actually set.
+     routes an event when a channelId is actually set. webhookUrl is the
+     no-bot-required alternative (a Discord webhook URL) — set either or
+     both; if both are set for the same event, both fire independently.
   ---------------------------------------------------------------- */
   "discordEventChannels": {
-    "join":        { "enabled": false, "channelId": "" },
-    "leave":       { "enabled": false, "channelId": "" },
-    "mute":        { "enabled": false, "channelId": "" },
-    "afk":         { "enabled": false, "channelId": "" },
-    "advancement": { "enabled": false, "channelId": "" },
-    "privateMessage": { "enabled": false, "channelId": "" }
+    "join":        { "enabled": false, "channelId": "", "webhookUrl": "" },
+    "leave":       { "enabled": false, "channelId": "", "webhookUrl": "" },
+    "mute":        { "enabled": false, "channelId": "", "webhookUrl": "" },
+    "afk":         { "enabled": false, "channelId": "", "webhookUrl": "" },
+    "advancement": { "enabled": false, "channelId": "", "webhookUrl": "" },
+    "privateMessage": { "enabled": false, "channelId": "", "webhookUrl": "" }
   }
 }
