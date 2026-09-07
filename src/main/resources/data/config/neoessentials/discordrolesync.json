@@ -1,0 +1,27 @@
+{
+  // DO NOT MODIFY: Used by NeoEssentials for automatic config updates.
+  "_configVersion": 1,
+
+  /* ================================================================
+     NeoEssentials — Discord Role -> Permission Group Sync (discordrolesync.json)
+     Reload in-game: /neoe reload
+  ================================================================ */
+
+  "discordRoleSync": {
+    // Master switch. Requires a Discord bridge mod that can read a linked player's current
+    // Discord role list (currently DCIntegration only — SDLink/Mc2Discord don't expose a public
+    // API for this) and NeoEssentials' OWN internal permission manager (not an external adapter
+    // like LuckPerms/FTB Ranks, since this can't write into another plugin's groups).
+    "enabled": false,
+    // How often (seconds) the periodic sweep re-checks every online player's Discord roles, in
+    // case a role changed outside this server (a booster role expiring, a manual Discord edit,
+    // etc). Also runs once immediately whenever a player joins.
+    "intervalSeconds": 300,
+    // Maps a Discord role's snowflake ID to a NeoEssentials permission group name
+    // (permissions.json). If a player holds more than one mapped role at once, the group with
+    // the higher "priority" wins. A player holding NONE of the mapped roles is left alone — this
+    // only ever grants/upgrades a group, it never demotes a player back to a default group.
+    "roleGroupMap": {
+    }
+  }
+}

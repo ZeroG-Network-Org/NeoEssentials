@@ -11,6 +11,7 @@ import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,6 +37,12 @@ import java.util.UUID;
  * unimplemented (no override path exists for them here yet) — DCIntegration has no native
  * relay for those event types to begin with, so there'd be no double-post to avoid; they're
  * simply not built out for this adapter yet.
+ *
+ * <p>{@link #getDiscordRoleIds(UUID)} is also implemented here (unlike SDLink, where it's a
+ * genuine public-API dead end) — DCIntegration's JDA client is directly reachable, so a linked
+ * player's current Discord role list can be read via a standard member lookup. This is what
+ * makes DCIntegration the adapter {@link com.zerog.neoessentials.integrations.DiscordRoleSyncTask}
+ * actually works with today.
  */
 public class DCIntegrationAdapter implements ChatIntegrationAdapter {
     private static final Logger LOGGER = LoggerFactory.getLogger(DCIntegrationAdapter.class);
@@ -162,6 +169,41 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
         } catch (Exception e) {
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration linked-account lookup failed for {}: {}", minecraftUuid, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<String> getDiscordRoleIds(UUID minecraftUuid) {
+        if (!isReady()) return List.of();
+        Optional<String> discordId = getLinkedDiscordId(minecraftUuid);
+        if (discordId.isEmpty()) return List.of();
+        try {
+            return JdaRoleFetcher.getRoleIds(discordId.get());
+        } catch (Throwable e) {
+            // Catches Errors too — same rationale as JdaChannelSender's Javadoc.
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration role lookup failed for Discord ID {}: {}", discordId.get(), e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Isolates every direct reference to JDA's {@code Member}/{@code Role} types — same
+     * rationale as {@link JdaChannelSender}'s Javadoc: the bytecode verifier resolves every
+     * type in this class's methods at class-LOAD time, so keeping them out of the containing
+     * class means they're never touched unless this method actually runs, by which point
+     * {@link #isReady()} already confirmed DCIntegration (and its JDA) is genuinely present.
+     */
+    private static final class JdaRoleFetcher {
+        static List<String> getRoleIds(String discordId) {
+            // getMemberById() checks DCIntegration's own member cache first, falling back to a
+            // blocking lookup — preferred over a raw JDA guild/member query for consistency with
+            // the rest of this mod's Discord access. Its own JDABuilder already requests
+            // GatewayIntent.GUILD_MEMBERS (confirmed via bytecode), so role data is populated.
+            net.dv8tion.jda.api.entities.Member member = DiscordIntegration.INSTANCE.getMemberById(discordId);
+            if (member == null) return List.of();
+            return member.getRoles().stream()
+                .map(net.dv8tion.jda.api.entities.Role::getId)
+                .toList();
         }
     }
 
