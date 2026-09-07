@@ -140,7 +140,9 @@ public class ConfigSplitter {
         put("tablist.json",       1);
         put("scoreboard.json",    1);
         put("leaderboard.json",   1);
-        put("templates/discord_embed.json", 1);
+        put("templates/discord_embed.json", 2);  // v2 — added per-event-type nested objects
+                                        //       (join/leave/mute/afk/advancement), each with
+                                        //       their own enabled/description/color/showTimestamp.
         put("templates/discord_events.json", 2);  // v2 — added "webhookUrl" alongside
                                         //       "channelId" in every entry — read by the new
                                         //       no-bot-required generic webhook relay adapter.
