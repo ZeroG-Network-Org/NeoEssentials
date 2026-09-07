@@ -642,8 +642,9 @@ needed, unlike a newly-installed bridge mod.
 > `advancementMessages` all **enabled by default** — each of these can post to Discord natively,
 > completely separately from the equivalent event NeoEssentials also sends through the same
 > SDLink bot. **As of build.59, NeoEssentials detects this automatically at startup and skips its
-> own send for whichever event(s) SDLink's native config already handles** — a normal SDLink
-> install no longer double-posts join/leave/advancement/default-route chat messages, with nothing
+> own send for whichever event(s) SDLink's native config already handles** (as of build 64, via
+> a real TOML parse of `simple-discord-link.toml` rather than a best-effort text scan) — a normal
+> SDLink install no longer double-posts join/leave/advancement/default-route chat messages, with nothing
 > to configure. A chat message routed to a specific per-channel Discord ID
 > (`chat.channels.<name>.discord.channelId`) always still sends through NeoEssentials regardless,
 > since that targets a channel SDLink's native relay never touches. NeoEssentials logs a startup
