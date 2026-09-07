@@ -73,9 +73,15 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
      * is on, and {@link #onPlayerChat}'s DEFAULT route (no explicit per-channel Discord ID) does
      * the same for {@code playerMessages} — a channel-specific override still always sends, since
      * that targets a different channel than SDLink's native relay ever touches, so it's not a
-     * duplicate. This is a read-only, best-effort text scan (not a full TOML parse) — never write
-     * to SDLink's config file, and fail safe (both sides could send) if the scan fails for any
-     * reason, rather than silently going dark on join/leave/chat.
+     * duplicate.
+     * <p>
+     * Reads the file through a real TOML parse ({@link TomlConflictReader}, isolated the same way
+     * as {@link JdaBridge} below), not a line/regex scan — a regex scan is fragile to anything
+     * that changes the file's exact formatting (a comment containing "playerMessages", a value
+     * written as {@code true # note}, non-standard nesting), which would silently defeat detection
+     * and cause NeoEssentials to double-send, exactly the bug this adapter exists to avoid. Never
+     * writes to SDLink's config file, and fails safe (both sides could send) if the parse fails
+     * for any reason, rather than silently going dark on join/leave/chat.
      */
     private void detectNativeRelayConflicts() {
         try {
@@ -83,49 +89,69 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
                 .resolve("config").resolve("simple-discord-link").resolve("simple-discord-link.toml");
             if (!java.nio.file.Files.exists(cfg)) return;
 
-            record ConflictingKey(String key, String valuePattern, String description, Runnable onDetected) {}
+            TomlConflictReader.ChatSectionFlags flags = TomlConflictReader.read(cfg);
+
+            record ConflictingKey(String key, boolean detected, String description, Runnable onDetected) {}
             List<ConflictingKey> checks = List.of(
-                new ConflictingKey("playerMessages", "(?i)playerMessages\\s*=\\s*true.*",
+                new ConflictingKey("playerMessages", flags.playerMessages(),
                     "relays EVERY Minecraft chat message to its own configured Discord channel, " +
                     "entirely independent of NeoEssentials' chat.channels.*.discord relay — NeoEssentials' " +
                     "own DEFAULT-route chat relay (no explicit per-channel Discord ID) is now suppressed to " +
                     "avoid a duplicate; per-channel overrides to a specific Discord ID still send normally",
                     () -> nativeChatEnabled = true),
-                new ConflictingKey("playerJoin", "(?i)playerJoin\\s*=\\s*true.*",
+                new ConflictingKey("playerJoin", flags.playerJoin(),
                     "posts its own player-join message natively — NeoEssentials' own join relay through " +
                     "this adapter is now suppressed to avoid a duplicate",
                     () -> nativeJoinEnabled = true),
-                new ConflictingKey("playerLeave", "(?i)playerLeave\\s*=\\s*true.*",
+                new ConflictingKey("playerLeave", flags.playerLeave(),
                     "posts its own player-leave message natively — NeoEssentials' own leave relay through " +
                     "this adapter is now suppressed to avoid a duplicate",
                     () -> nativeLeaveEnabled = true),
-                new ConflictingKey("advancementMessages", "(?i)advancementMessages\\s*=\\s*\"ALWAYS\".*",
+                new ConflictingKey("advancementMessages", flags.advancementAlways(),
                     "posts its own advancement message natively — NeoEssentials' own advancement relay " +
                     "through this adapter is now suppressed to avoid a duplicate",
                     () -> nativeAdvancementEnabled = true)
             );
 
-            boolean inChatSection = false;
-            for (String line : java.nio.file.Files.readAllLines(cfg)) {
-                String trimmed = line.trim();
-                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                    inChatSection = trimmed.equalsIgnoreCase("[chat]");
-                    continue;
-                }
-                if (!inChatSection) continue;
-                for (ConflictingKey check : checks) {
-                    if (trimmed.matches(check.valuePattern())) {
-                        check.onDetected().run();
-                        NeoLog.warn(LOGGER, LogCategory.DISCORD, "Simple Discord Link's own 'chat.{}' is enabled in " +
-                            "config/simple-discord-link/simple-discord-link.toml. That {}. If you'd rather " +
-                            "NeoEssentials be the one formatting these instead, set '{}' to a non-conflicting " +
-                            "value under [chat] in that file and restart.",
-                            check.key(), check.description(), check.key());
-                    }
+            for (ConflictingKey check : checks) {
+                if (check.detected()) {
+                    check.onDetected().run();
+                    NeoLog.warn(LOGGER, LogCategory.DISCORD, "Simple Discord Link's own 'chat.{}' is enabled in " +
+                        "config/simple-discord-link/simple-discord-link.toml. That {}. If you'd rather " +
+                        "NeoEssentials be the one formatting these instead, set '{}' to a non-conflicting " +
+                        "value under [chat] in that file and restart.",
+                        check.key(), check.description(), check.key());
                 }
             }
         } catch (Exception e) {
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "Could not check Simple Discord Link's config for a conflicting native chat relay: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Isolates every direct reference to NightConfig's TOML parser types
+     * ({@code com.electronwill.nightconfig.*}) in a class of its own — same rationale as
+     * {@link JdaBridge}'s Javadoc, even though NightConfig is always present at runtime here
+     * (it's a transitive dependency of NeoForge's own {@code ModConfigSpec}, not of SDLink):
+     * defense-in-depth against a future NeoForge version bumping it to an incompatible major
+     * version. {@link ChatSectionFlags} exposes only primitive {@code boolean} fields, so the
+     * NightConfig types touched inside {@link #read} never appear in this class's own
+     * StackMapTable either.
+     */
+    private static final class TomlConflictReader {
+        record ChatSectionFlags(boolean playerMessages, boolean playerJoin, boolean playerLeave, boolean advancementAlways) {}
+
+        static ChatSectionFlags read(java.nio.file.Path file) throws java.io.IOException {
+            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(file)) {
+                com.electronwill.nightconfig.core.CommentedConfig config =
+                    new com.electronwill.nightconfig.toml.TomlParser().parse(reader);
+                boolean playerMessages = config.getOrElse("chat.playerMessages", false);
+                boolean playerJoin = config.getOrElse("chat.playerJoin", false);
+                boolean playerLeave = config.getOrElse("chat.playerLeave", false);
+                String advancementMessages = config.getOrElse("chat.advancementMessages", "");
+                return new ChatSectionFlags(playerMessages, playerJoin, playerLeave,
+                    "ALWAYS".equalsIgnoreCase(advancementMessages));
+            }
         }
     }
 
@@ -144,6 +170,8 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         if (!isReady()) return;
         try {
             String cleanMessage = com.zerog.neoessentials.integrations.DiscordTextSanitizer.sanitizeMentions(message.replaceAll("§[0-9a-fk-or]", ""));
+            cleanMessage = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(cleanMessage,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 // A specific Discord channel was configured for this NeoEssentials chat channel
                 // (e.g. a private staff channel). SDLink's DiscordMessageBuilder has no API to
@@ -233,7 +261,9 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         if (!isReady()) return;
         try {
             String text = String.format("Private message to %s: %s", recipient.getName().getString(),
-                com.zerog.neoessentials.integrations.DiscordTextSanitizer.sanitizeMentions(message));
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(
+                    com.zerog.neoessentials.integrations.DiscordTextSanitizer.sanitizeMentions(message),
+                    com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT));
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, sender.getName().getString() + ": " + text);
             } else {
@@ -249,8 +279,10 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         if (!isReady()) return;
         try {
             String action = isMuted ? "muted" : "unmuted";
+            String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             String text = String.format("%s has been %s%s", player.getName().getString(), action,
-                reason != null && !reason.isEmpty() ? " (Reason: " + reason + ")" : "");
+                safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else {
@@ -266,8 +298,10 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         if (!isReady()) return;
         try {
             String status = isAfk ? "is now AFK" : "is no longer AFK";
+            String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             String text = String.format("%s %s%s", player.getName().getString(), status,
-                (isAfk && reason != null && !reason.isEmpty()) ? " (" + reason + ")" : "");
+                (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else {
@@ -315,7 +349,9 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
     public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " earned the advancement " + advancementName;
+            String text = player.getName().getString() + " earned the advancement " +
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(advancementName,
+                    com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else if (!nativeAdvancementEnabled) {
