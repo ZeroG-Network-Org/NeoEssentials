@@ -98,7 +98,15 @@ public class DiscordEndpoint implements HttpHandler {
             Map<String, Object> a = adapterList.get(i);
             sb.append("{\"name\":\"").append(escape(String.valueOf(a.get("name")))).append("\",");
             sb.append("\"enabled\":").append(a.get("enabled")).append(",");
-            sb.append("\"ready\":").append(a.get("ready")).append("}");
+            sb.append("\"ready\":").append(a.get("ready")).append(",");
+            sb.append("\"nativeRelayWarnings\":[");
+            @SuppressWarnings("unchecked")
+            List<String> warnings = (List<String>) a.getOrDefault("nativeRelayWarnings", List.of());
+            for (int w = 0; w < warnings.size(); w++) {
+                if (w > 0) sb.append(",");
+                sb.append("\"").append(escape(warnings.get(w))).append("\"");
+            }
+            sb.append("]}");
         }
         sb.append("]}");
         sendJson(exchange, 200, sb.toString());

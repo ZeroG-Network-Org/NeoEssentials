@@ -142,6 +142,19 @@ public interface ChatIntegrationAdapter {
     }
 
     /**
+     * Human-readable warnings about a detected conflict between this adapter's own relay and the
+     * companion mod's native one (e.g. SDLink's {@code chat.playerMessages} already relaying chat
+     * natively) — surfaced by the web dashboard's Discord status panel so an admin configuring
+     * integration through it sees the same thing the startup log already warns about, without
+     * needing console access. Empty if this adapter doesn't do this kind of detection, or found
+     * no conflicts.
+     * @return Zero or more warning strings, safe to display as-is
+     */
+    default List<String> getNativeRelayWarnings() {
+        return List.of();
+    }
+
+    /**
      * Resolve the Discord role IDs held by a linked player, if the companion mod exposes them.
      * @param minecraftUuid The player's Minecraft UUID
      * @return The player's Discord role IDs, or an empty list if not linked/unsupported

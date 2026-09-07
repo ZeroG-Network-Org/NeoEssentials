@@ -41,6 +41,9 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     private boolean nativeJoinEnabled = false;
     private boolean nativeLeaveEnabled = false;
     private boolean nativeAdvancementEnabled = false;
+    // Human-readable form of whichever of the above got set — see SDLinkAdapter's equivalent
+    // field and getNativeRelayWarnings() for the shared rationale (dashboard visibility).
+    private final List<String> nativeRelayWarnings = new ArrayList<>();
 
     @Override
     public String getName() {
@@ -131,6 +134,8 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
                         "config/mc2discord.toml. That {}. If you'd rather NeoEssentials be the one formatting " +
                         "this instead, remove {} from that channel's subscriptions list and restart.",
                         check.subscriptionKey(), check.description(), check.subscriptionKey());
+                    nativeRelayWarnings.add("Mc2Discord has a channel subscribed to " + check.subscriptionKey() +
+                        " — " + check.description());
                 }
             }
         } catch (Exception e) {
@@ -310,6 +315,11 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "Mc2Discord reverse-account lookup failed for {}: {}", discordId, e.getMessage());
             return Optional.empty();
         }
+    }
+
+    @Override
+    public List<String> getNativeRelayWarnings() {
+        return List.copyOf(nativeRelayWarnings);
     }
 
     private String avatarFor(ServerPlayer player) {
