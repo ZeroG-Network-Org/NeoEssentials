@@ -116,6 +116,66 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
         }
     }
 
+    /**
+     * Confirmed via bytecode ({@code DiscordIntegrationMod.advancement()}, subscribed to
+     * NeoForge's {@code AdvancementEvent.AdvancementEarnEvent}) that DCIntegration already
+     * relays advancements natively for linked players whenever its own
+     * {@code Localization.advancementMessage} template is non-blank — same additive-only
+     * treatment as {@link #onPlayerJoin}/{@link #onPlayerQuit}, never a default-route send.
+     */
+    @Override
+    public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
+        if (!isReady() || discordChannelId == null || discordChannelId.isBlank()) return;
+        try {
+            String safeAdvancementName = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(advancementName,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying advancement for '{}' to Discord channel '{}' (additive override — native relay untouched)",
+                player.getName().getString(), discordChannelId);
+            sendToChannel(discordChannelId, player.getName().getString() + " earned the advancement " + safeAdvancementName);
+        } catch (Throwable e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay advancement event via DCIntegration", e);
+        }
+    }
+
+    /**
+     * DCIntegration has no native concept of mutes at all (confirmed via bytecode — no mixin or
+     * event handler references anything mute-related), so unlike advancement this isn't
+     * suppressing a duplicate — it's simply additive, same as {@link #onPlayerJoin}. Still
+     * override-only, since DCIntegration has no general-purpose "send to my own default channel"
+     * API this adapter can call into (unlike SDLink's {@code DiscordMessageBuilder} or
+     * Mc2Discord's {@code MessageManager.sendInfoMessage}) — only {@link #sendToChannel} exists.
+     */
+    @Override
+    public void onPlayerMute(ServerPlayer player, String reason, boolean isMuted, String discordChannelId) {
+        if (!isReady() || discordChannelId == null || discordChannelId.isBlank()) return;
+        try {
+            String action = isMuted ? "muted" : "unmuted";
+            String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
+            String text = String.format("%s has been %s%s", player.getName().getString(), action,
+                safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
+            sendToChannel(discordChannelId, text);
+        } catch (Throwable e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay mute event via DCIntegration", e);
+        }
+    }
+
+    /** See {@link #onPlayerMute}'s Javadoc — same rationale (no native concept, override-only). */
+    @Override
+    public void onAfkStatusChange(ServerPlayer player, boolean isAfk, String reason, String discordChannelId) {
+        if (!isReady() || discordChannelId == null || discordChannelId.isBlank()) return;
+        try {
+            String status = isAfk ? "is now AFK" : "is no longer AFK";
+            String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
+            String text = String.format("%s %s%s", player.getName().getString(), status,
+                (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
+            sendToChannel(discordChannelId, text);
+        } catch (Throwable e) {
+            NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay AFK event via DCIntegration", e);
+        }
+    }
+
     @Override
     public boolean sendToChannel(String channelId, String message) {
         if (!isReady()) return false;
