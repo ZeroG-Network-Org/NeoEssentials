@@ -121,7 +121,10 @@ public class ConfigSplitter {
                                         //       per-subsystem toggles (see
                                         //       ConfigManager.migrateLoggingCategories)
         put("commands.json",      1);
-        put("chat.json",          2);  // v2 — chat-format/formatTemplates defaults patched to use
+        put("chat.json",          3);  // v3 — added "webhookUrl" alongside "channelId" in every
+                                        //       chat.channels.*.discord block — read by the new
+                                        //       no-bot-required generic webhook relay adapter.
+        // v2 — chat-format/formatTemplates defaults patched to use
                                         //       {neoessentials_displayname} instead of
                                         //       {neoessentials_username}/{neoessentials_name} so /nick
                                         //       actually shows up in chat (see
@@ -138,7 +141,10 @@ public class ConfigSplitter {
         put("scoreboard.json",    1);
         put("leaderboard.json",   1);
         put("templates/discord_embed.json", 1);
-        put("templates/discord_events.json", 1);  // v1 — new file. discordEventChannels was
+        put("templates/discord_events.json", 2);  // v2 — added "webhookUrl" alongside
+                                        //       "channelId" in every entry — read by the new
+                                        //       no-bot-required generic webhook relay adapter.
+        // v1 — new file. discordEventChannels was
                                         //       added directly to main.json's template (v51)
                                         //       with no FILE_SECTIONS_MAP entry at all — same
                                         //       "silently dropped on split" bug this map's other

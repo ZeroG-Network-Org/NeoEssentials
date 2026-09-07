@@ -571,7 +571,8 @@ channel**, using the `discord` object nested inside that channel's entry under
     "default": true,
     "discord": {
       "enabled": true,
-      "channelId": "123456789012345678"
+      "channelId": "123456789012345678",
+      "webhookUrl": ""
     }
   }
 }
@@ -580,36 +581,60 @@ channel**, using the `discord` object nested inside that channel's entry under
 | Key | Description |
 |---|---|
 | `discord.enabled` | Relay this channel's Minecraft chat to the given Discord channel |
-| `discord.channelId` | Discord channel ID to relay to |
+| `discord.channelId` | Discord channel ID to relay to — used by SDLink/Mc2Discord/DCIntegration |
+| `discord.webhookUrl` | Discord webhook URL to relay to — used by the built-in Generic Webhook relay (see below); no bridge mod required |
+
+You can set `channelId`, `webhookUrl`, both, or neither — each is only read by the adapter(s) that
+understand it, and setting both just means both fire independently for the same message.
 
 Chat's own relay settings live under each channel, not a separate top-level section — but
-non-chat events (join/leave/mute/AFK/private messages) aren't tied to any one NeoEssentials
-channel, so they get their own top-level `discordEventChannels` section instead:
+non-chat events (join/leave/mute/AFK/advancement/private messages) aren't tied to any one
+NeoEssentials channel, so they get their own top-level `discordEventChannels` section instead:
 
 ```json
 "discordEventChannels": {
-  "join":           { "enabled": true,  "channelId": "123456789012345678" },
-  "leave":          { "enabled": true,  "channelId": "123456789012345678" },
-  "mute":           { "enabled": true,  "channelId": "987654321098765432" },
-  "afk":             { "enabled": false, "channelId": "" },
-  "advancement":    { "enabled": false, "channelId": "" },
-  "privateMessage": { "enabled": false, "channelId": "" }
+  "join":           { "enabled": true,  "channelId": "123456789012345678", "webhookUrl": "" },
+  "leave":          { "enabled": true,  "channelId": "123456789012345678", "webhookUrl": "" },
+  "mute":           { "enabled": true,  "channelId": "987654321098765432", "webhookUrl": "" },
+  "afk":            { "enabled": false, "channelId": "", "webhookUrl": "" },
+  "advancement":    { "enabled": false, "channelId": "", "webhookUrl": "" },
+  "privateMessage": { "enabled": false, "channelId": "", "webhookUrl": "" }
 }
 ```
 
-Each entry works the same way as a chat channel's `discord.enabled`/`discord.channelId` —
-`enabled: false` or a blank `channelId` means "let whichever bridge mod is installed route this
-event to its own natively-configured default channel instead," exactly as before this section
-existed. Setting both lets you, for example, send joins/leaves to a `#server-log` channel while
-keeping mutes in a private `#mod-log` channel, independent of chat's own per-channel routing.
-Works the same way across SDLink/Mc2Discord/DCIntegration (support varies slightly per adapter —
-DCIntegration in particular only relays join/leave through this override, since it otherwise
-covers those events entirely on its own via its native chat mixins).
+Each entry works the same way as a chat channel's `discord.*` fields above —
+`enabled: false` or a blank `channelId`/`webhookUrl` means "let whichever bridge mod is installed
+route this event to its own natively-configured default channel instead," exactly as before this
+section existed. Setting both lets you, for example, send joins/leaves to a `#server-log` channel
+while keeping mutes in a private `#mod-log` channel, independent of chat's own per-channel
+routing. Works the same way across SDLink/Mc2Discord/DCIntegration (support varies slightly per
+adapter — DCIntegration in particular only relays join/leave through this override, since it
+otherwise covers those events entirely on its own via its native chat mixins).
 
 If a chat channel has a `permission` requirement, players without it are excluded from the
 Discord relay as well as in-game delivery.
 
-Works standalone (no relay) if none of SDLink/Mc2Discord/DCIntegration is installed.
+Works standalone (no relay) if none of SDLink/Mc2Discord/DCIntegration/a configured webhook is
+present.
+
+### Generic Webhook relay (no bridge mod required)
+
+Every `channelId` field above needs a real Discord bot (SDLink, Mc2Discord, or DCIntegration)
+actually running on the server. If you don't want to run a bot at all, set the matching
+**`webhookUrl`** field instead — a Discord webhook is a plain URL Discord itself generates per
+channel (Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL), and
+NeoEssentials posts to it directly over HTTPS with no companion mod, bot token, or gateway
+connection needed. This works even with zero of SDLink/Mc2Discord/DCIntegration installed.
+
+Trade-offs versus a real bot-based relay: webhooks are one-way (Minecraft → Discord only — there's
+no way to relay a Discord reply back into chat this way) and have no concept of linked
+accounts/roles. Chat messages sent via webhook still impersonate the sending player (their name
+and Minecraft-head avatar as the message's displayed sender), same as SDLink's own default look,
+using Discord's per-message `username`/`avatar_url` override — you don't need to rename the
+webhook itself per player.
+
+A webhook added or changed via `/neoe reload` takes effect immediately — no server restart
+needed, unlike a newly-installed bridge mod.
 
 > **SDLink has its own native chat/join/leave/advancement broadcasters, independent of
 > NeoEssentials.** SDLink's own config (`config/simple-discord-link/simple-discord-link.toml`,

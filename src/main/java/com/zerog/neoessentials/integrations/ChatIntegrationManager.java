@@ -3,6 +3,7 @@ package com.zerog.neoessentials.integrations;
 import com.zerog.neoessentials.integrations.impl.DCIntegrationAdapter;
 import com.zerog.neoessentials.integrations.impl.Mc2DiscordAdapter;
 import com.zerog.neoessentials.integrations.impl.SDLinkAdapter;
+import com.zerog.neoessentials.integrations.impl.WebhookAdapter;
 import com.zerog.neoessentials.logging.LogCategory;
 import com.zerog.neoessentials.logging.NeoLog;
 import net.minecraft.server.level.ServerPlayer;
@@ -80,7 +81,12 @@ public class ChatIntegrationManager {
         List<ChatIntegrationAdapter> candidates = List.of(
             new SDLinkAdapter(),
             new Mc2DiscordAdapter(),
-            new DCIntegrationAdapter()
+            new DCIntegrationAdapter(),
+            // Unlike the three above, this one needs no companion mod at all (plain HTTPS
+            // webhook POST) — it's always a candidate, and simply registers as disabled if no
+            // webhookUrl is configured anywhere. Safe to run alongside any/all of the above:
+            // it only acts on its own webhookUrl fields, which the bot-based adapters ignore.
+            new WebhookAdapter()
         );
 
         int loaded = 0;
