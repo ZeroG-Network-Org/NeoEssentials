@@ -1456,7 +1456,13 @@ public class ConfigManager {
 
     // Expected versions for each config file (must match the version in JAR resources)
     private static final java.util.Map<String, Integer> EXPECTED_CONFIG_VERSIONS = new java.util.HashMap<>() {{
-        put(MAIN_CONFIG, 52);          // v52 — added "webhookUrl" alongside "channelId" in every
+        put(MAIN_CONFIG, 53);          // v53 — added per-event-type nested objects
+                                        //       (join/leave/mute/afk/advancement) under
+                                        //       discordEmbedTemplate, each with its own
+                                        //       enabled/description/color/showTimestamp — SDLink's
+                                        //       explicit-channel-override sends for those events
+                                        //       now get a styled embed instead of plain text.
+        // v52 — added "webhookUrl" alongside "channelId" in every
                                         //       chat.channels.*.discord block and
                                         //       discordEventChannels.* entry — the new no-bot-
                                         //       required generic webhook relay adapter reads

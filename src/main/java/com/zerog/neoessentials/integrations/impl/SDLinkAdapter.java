@@ -1,5 +1,6 @@
 package com.zerog.neoessentials.integrations.impl;
 
+import com.google.gson.JsonObject;
 import com.hypherionmc.craterlib.api.game.authlib.CraterGameProfile;
 import com.hypherionmc.sdlink.api.accounts.DiscordAuthor;
 import com.hypherionmc.sdlink.api.accounts.DiscordUser;
@@ -216,6 +217,12 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
      * {@code ConfigSplitter.FILE_SECTIONS_MAP}). Deliberately holds only {@link String}/
      * {@code boolean} fields — no JDA/Discord4J types — so reading config never risks the
      * classloading issue {@link JdaBridge} exists to avoid.
+     * <p>
+     * Every event type (chat, join, leave, mute, afk, advancement) that routes to an explicit
+     * per-channel Discord ID gets one of these — chat's own top-level fields are unchanged for
+     * backward compatibility; the other five read from a same-shaped nested object
+     * ({@code discordEmbedTemplate.join}, etc.), each with its own sensible defaults so a server
+     * that never touches the new sections still gets a styled embed instead of a bare text line.
      */
     private static final class EmbedTemplate {
         boolean enabled = true;
@@ -237,23 +244,89 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         }
     }
 
-    private static EmbedTemplate readEmbedTemplate() {
+    /** Built-in per-event-type defaults, used whenever {@code discordEmbedTemplate.<eventKey>} doesn't override a field. */
+    private static EmbedTemplate defaultTemplateFor(String eventKey) {
         EmbedTemplate t = new EmbedTemplate();
-        try {
-            var cfg = com.zerog.neoessentials.config.ConfigManager.getInstance().getConfig("discordEmbedTemplate");
-            if (cfg.has("enabled")) t.enabled = cfg.get("enabled").getAsBoolean();
-            if (cfg.has("authorName")) t.authorName = cfg.get("authorName").getAsString();
-            if (cfg.has("authorIconUrl")) t.authorIconUrl = cfg.get("authorIconUrl").getAsString();
-            if (cfg.has("description")) t.description = cfg.get("description").getAsString();
-            if (cfg.has("color")) t.color = cfg.get("color").getAsString();
-            if (cfg.has("footerText")) t.footerText = cfg.get("footerText").getAsString();
-            if (cfg.has("footerIconUrl")) t.footerIconUrl = cfg.get("footerIconUrl").getAsString();
-            if (cfg.has("showTimestamp")) t.showTimestamp = cfg.get("showTimestamp").getAsBoolean();
-        } catch (Exception e) {
-            // Config missing/malformed — fall back to the built-in defaults above.
-            NeoLog.debug(LOGGER, LogCategory.DISCORD, "Could not read discordEmbedTemplate config, using defaults", e);
+        switch (eventKey) {
+            case "join" -> {
+                t.description = "**{player}** joined the server";
+                t.color = "#57F287"; // Discord green
+                t.showTimestamp = true;
+            }
+            case "leave" -> {
+                t.description = "**{player}** left the server";
+                t.color = "#ED4245"; // Discord red
+                t.showTimestamp = true;
+            }
+            case "mute" -> {
+                t.description = "{message}";
+                t.color = "#FEE75C"; // Discord yellow
+            }
+            case "afk" -> {
+                t.description = "{message}";
+            }
+            case "advancement" -> {
+                t.description = "**{player}** earned the advancement **{message}**";
+                t.color = "#FAA61A"; // Discord orange
+                t.showTimestamp = true;
+            }
+            default -> { /* "chat" — the built-in defaults above already match its prior behavior. */ }
         }
         return t;
+    }
+
+    private static EmbedTemplate readEmbedTemplate() {
+        return readEmbedTemplate("chat");
+    }
+
+    /**
+     * @param eventKey "chat" reads {@code discordEmbedTemplate}'s own top-level fields (unchanged
+     *                 shape/behavior); anything else reads the nested
+     *                 {@code discordEmbedTemplate.<eventKey>} object, if present.
+     */
+    private static EmbedTemplate readEmbedTemplate(String eventKey) {
+        EmbedTemplate t = defaultTemplateFor(eventKey);
+        try {
+            JsonObject root = com.zerog.neoessentials.config.ConfigManager.getInstance().getConfig("discordEmbedTemplate");
+            JsonObject cfg = "chat".equals(eventKey) ? root
+                : (root.has(eventKey) && root.get(eventKey).isJsonObject() ? root.getAsJsonObject(eventKey) : null);
+            if (cfg != null) {
+                if (cfg.has("enabled")) t.enabled = cfg.get("enabled").getAsBoolean();
+                if (cfg.has("authorName")) t.authorName = cfg.get("authorName").getAsString();
+                if (cfg.has("authorIconUrl")) t.authorIconUrl = cfg.get("authorIconUrl").getAsString();
+                if (cfg.has("description")) t.description = cfg.get("description").getAsString();
+                if (cfg.has("color")) t.color = cfg.get("color").getAsString();
+                if (cfg.has("footerText")) t.footerText = cfg.get("footerText").getAsString();
+                if (cfg.has("footerIconUrl")) t.footerIconUrl = cfg.get("footerIconUrl").getAsString();
+                if (cfg.has("showTimestamp")) t.showTimestamp = cfg.get("showTimestamp").getAsBoolean();
+            }
+        } catch (Exception e) {
+            // Config missing/malformed — fall back to the built-in defaults above.
+            NeoLog.debug(LOGGER, LogCategory.DISCORD, "Could not read discordEmbedTemplate.{} config, using defaults", eventKey, e);
+        }
+        return t;
+    }
+
+    /**
+     * Routes a non-chat event's explicit channel-override send through the same embed machinery
+     * {@link #onPlayerChat} already uses for its own override path, instead of a bare text line —
+     * see {@link #defaultTemplateFor} for each event's built-in look. Falls back to
+     * {@code plainText} when {@code discordEmbedTemplate.<eventKey>.enabled} is false.
+     */
+    private void sendEventEmbedOrPlain(String eventKey, String discordChannelId, ServerPlayer player, String messageContent, String plainText) {
+        EmbedTemplate template = readEmbedTemplate(eventKey);
+        if (template.enabled) {
+            JdaBridge.sendTemplatedEmbed(discordChannelId,
+                template.resolve(template.authorName, player, null, messageContent),
+                template.resolve(template.authorIconUrl, player, null, messageContent),
+                template.resolve(template.description, player, null, messageContent),
+                template.color,
+                template.resolve(template.footerText, player, null, messageContent),
+                template.footerIconUrl,
+                template.showTimestamp);
+        } else {
+            JdaBridge.sendPlain(discordChannelId, plainText);
+        }
     }
 
     @Override
@@ -284,7 +357,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
             String text = String.format("%s has been %s%s", player.getName().getString(), action,
                 safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
-                sendToChannel(discordChannelId, text);
+                sendEventEmbedOrPlain("mute", discordChannelId, player, text, text);
             } else {
                 send(MessageType.CUSTOM, DiscordAuthor.getServer(), text);
             }
@@ -303,7 +376,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
             String text = String.format("%s %s%s", player.getName().getString(), status,
                 (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
-                sendToChannel(discordChannelId, text);
+                sendEventEmbedOrPlain("afk", discordChannelId, player, text, text);
             } else {
                 send(MessageType.CUSTOM, DiscordAuthor.getServer(), text);
             }
@@ -321,7 +394,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
                 // Explicit channel override always sends, same convention as onPlayerChat's
                 // channel-override path — see detectNativeRelayConflicts()'s Javadoc for why an
                 // override is assumed to target a channel SDLink's native relay doesn't touch.
-                sendToChannel(discordChannelId, text);
+                sendEventEmbedOrPlain("join", discordChannelId, player, "", text);
             } else if (!nativeJoinEnabled) {
                 send(MessageType.JOIN, authorFor(player), text);
             }
@@ -336,7 +409,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         try {
             String text = player.getName().getString() + " left the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
-                sendToChannel(discordChannelId, text);
+                sendEventEmbedOrPlain("leave", discordChannelId, player, "", text);
             } else if (!nativeLeaveEnabled) {
                 send(MessageType.LEAVE, authorFor(player), text);
             }
@@ -349,11 +422,11 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
     public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " earned the advancement " +
-                com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(advancementName,
-                    com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
+            String safeAdvancementName = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(advancementName,
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
+            String text = player.getName().getString() + " earned the advancement " + safeAdvancementName;
             if (discordChannelId != null && !discordChannelId.isBlank()) {
-                sendToChannel(discordChannelId, text);
+                sendEventEmbedOrPlain("advancement", discordChannelId, player, safeAdvancementName, text);
             } else if (!nativeAdvancementEnabled) {
                 send(MessageType.ADVANCEMENTS, authorFor(player), text);
             }
