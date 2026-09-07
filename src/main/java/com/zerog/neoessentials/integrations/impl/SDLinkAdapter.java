@@ -229,68 +229,98 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
     }
 
     @Override
-    public void onPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message) {
+    public void onPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message, String discordChannelId) {
         if (!isReady()) return;
         try {
-            send(MessageType.CUSTOM, authorFor(sender),
-                String.format("Private message to %s: %s", recipient.getName().getString(), com.zerog.neoessentials.integrations.DiscordTextSanitizer.sanitizeMentions(message)));
+            String text = String.format("Private message to %s: %s", recipient.getName().getString(),
+                com.zerog.neoessentials.integrations.DiscordTextSanitizer.sanitizeMentions(message));
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, sender.getName().getString() + ": " + text);
+            } else {
+                send(MessageType.CUSTOM, authorFor(sender), text);
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay private message via SDLink", e);
         }
     }
 
     @Override
-    public void onPlayerMute(ServerPlayer player, String reason, boolean isMuted) {
+    public void onPlayerMute(ServerPlayer player, String reason, boolean isMuted, String discordChannelId) {
         if (!isReady()) return;
         try {
             String action = isMuted ? "muted" : "unmuted";
-            send(MessageType.CUSTOM, DiscordAuthor.getServer(),
-                String.format("%s has been %s%s", player.getName().getString(), action,
-                    reason != null && !reason.isEmpty() ? " (Reason: " + reason + ")" : ""));
+            String text = String.format("%s has been %s%s", player.getName().getString(), action,
+                reason != null && !reason.isEmpty() ? " (Reason: " + reason + ")" : "");
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                send(MessageType.CUSTOM, DiscordAuthor.getServer(), text);
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay mute event via SDLink", e);
         }
     }
 
     @Override
-    public void onAfkStatusChange(ServerPlayer player, boolean isAfk, String reason) {
+    public void onAfkStatusChange(ServerPlayer player, boolean isAfk, String reason, String discordChannelId) {
         if (!isReady()) return;
         try {
             String status = isAfk ? "is now AFK" : "is no longer AFK";
-            send(MessageType.CUSTOM, DiscordAuthor.getServer(),
-                String.format("%s %s%s", player.getName().getString(), status,
-                    (isAfk && reason != null && !reason.isEmpty()) ? " (" + reason + ")" : ""));
+            String text = String.format("%s %s%s", player.getName().getString(), status,
+                (isAfk && reason != null && !reason.isEmpty()) ? " (" + reason + ")" : "");
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else {
+                send(MessageType.CUSTOM, DiscordAuthor.getServer(), text);
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay AFK event via SDLink", e);
         }
     }
 
     @Override
-    public void onPlayerJoin(ServerPlayer player) {
-        if (!isReady() || nativeJoinEnabled) return;
+    public void onPlayerJoin(ServerPlayer player, String discordChannelId) {
+        if (!isReady()) return;
         try {
-            send(MessageType.JOIN, authorFor(player), player.getName().getString() + " joined the server");
+            String text = player.getName().getString() + " joined the server";
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                // Explicit channel override always sends, same convention as onPlayerChat's
+                // channel-override path — see detectNativeRelayConflicts()'s Javadoc for why an
+                // override is assumed to target a channel SDLink's native relay doesn't touch.
+                sendToChannel(discordChannelId, text);
+            } else if (!nativeJoinEnabled) {
+                send(MessageType.JOIN, authorFor(player), text);
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay join event via SDLink", e);
         }
     }
 
     @Override
-    public void onPlayerQuit(ServerPlayer player) {
-        if (!isReady() || nativeLeaveEnabled) return;
+    public void onPlayerQuit(ServerPlayer player, String discordChannelId) {
+        if (!isReady()) return;
         try {
-            send(MessageType.LEAVE, authorFor(player), player.getName().getString() + " left the server");
+            String text = player.getName().getString() + " left the server";
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else if (!nativeLeaveEnabled) {
+                send(MessageType.LEAVE, authorFor(player), text);
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay quit event via SDLink", e);
         }
     }
 
     @Override
-    public void onPlayerAdvancement(ServerPlayer player, String advancementName) {
-        if (!isReady() || nativeAdvancementEnabled) return;
+    public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
+        if (!isReady()) return;
         try {
-            send(MessageType.ADVANCEMENTS, authorFor(player),
-                player.getName().getString() + " earned the advancement " + advancementName);
+            String text = player.getName().getString() + " earned the advancement " + advancementName;
+            if (discordChannelId != null && !discordChannelId.isBlank()) {
+                sendToChannel(discordChannelId, text);
+            } else if (!nativeAdvancementEnabled) {
+                send(MessageType.ADVANCEMENTS, authorFor(player), text);
+            }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay advancement event via SDLink", e);
         }

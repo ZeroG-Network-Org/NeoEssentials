@@ -37,9 +37,23 @@ public interface ChatIntegrationAdapter {
      * @param message The message content
      */
     default void onPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message) {
+        onPrivateMessage(sender, recipient, message, null);
+    }
+
+    /**
+     * Same as {@link #onPrivateMessage(ServerPlayer, ServerPlayer, String)}, with an optional
+     * Discord channel override — see {@link #onPlayerChat}'s {@code discordChannelId} parameter
+     * for the same convention this mirrors. Override THIS method (not the 3-arg one) to support
+     * per-event channel routing; the 3-arg version above delegates here with a null channel so
+     * it stays a valid override point for adapters that don't care about routing. This one's own
+     * default does nothing — same as the 3-arg version always did — so an adapter that overrides
+     * neither still gets the original no-op behavior with no risk of the two defaults looping.
+     * @param discordChannelId Optional Discord channel ID to send to (null = adapter/mod default)
+     */
+    default void onPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message, String discordChannelId) {
         // Default implementation does nothing
     }
-    
+
     /**
      * Called when a player's mute status changes
      * @param player The affected player
@@ -47,9 +61,15 @@ public interface ChatIntegrationAdapter {
      * @param isMuted true if being muted, false if being unmuted
      */
     default void onPlayerMute(ServerPlayer player, String reason, boolean isMuted) {
+        onPlayerMute(player, reason, isMuted, null);
+    }
+
+    /** See {@link #onPrivateMessage(ServerPlayer, ServerPlayer, String, String)}'s javadoc — same
+     *  delegate-down convention and the same reason for it. */
+    default void onPlayerMute(ServerPlayer player, String reason, boolean isMuted, String discordChannelId) {
         // Default implementation does nothing
     }
-    
+
     /**
      * Called when a player's AFK status changes
      * @param player The affected player
@@ -57,22 +77,40 @@ public interface ChatIntegrationAdapter {
      * @param reason The AFK reason (may be null)
      */
     default void onAfkStatusChange(ServerPlayer player, boolean isAfk, String reason) {
+        onAfkStatusChange(player, isAfk, reason, null);
+    }
+
+    /** See {@link #onPrivateMessage(ServerPlayer, ServerPlayer, String, String)}'s javadoc — same
+     *  delegate-down convention and the same reason for it. */
+    default void onAfkStatusChange(ServerPlayer player, boolean isAfk, String reason, String discordChannelId) {
         // Default implementation does nothing
     }
-    
+
     /**
      * Called when a player joins the server
      * @param player The joining player
      */
     default void onPlayerJoin(ServerPlayer player) {
+        onPlayerJoin(player, null);
+    }
+
+    /** See {@link #onPrivateMessage(ServerPlayer, ServerPlayer, String, String)}'s javadoc — same
+     *  delegate-down convention and the same reason for it. */
+    default void onPlayerJoin(ServerPlayer player, String discordChannelId) {
         // Default implementation does nothing
     }
-    
+
     /**
      * Called when a player quits the server
      * @param player The quitting player
      */
     default void onPlayerQuit(ServerPlayer player) {
+        onPlayerQuit(player, null);
+    }
+
+    /** See {@link #onPrivateMessage(ServerPlayer, ServerPlayer, String, String)}'s javadoc — same
+     *  delegate-down convention and the same reason for it. */
+    default void onPlayerQuit(ServerPlayer player, String discordChannelId) {
         // Default implementation does nothing
     }
     
@@ -143,6 +181,12 @@ public interface ChatIntegrationAdapter {
      * @param advancementName The advancement's display/title text
      */
     default void onPlayerAdvancement(ServerPlayer player, String advancementName) {
+        onPlayerAdvancement(player, advancementName, null);
+    }
+
+    /** See {@link #onPrivateMessage(ServerPlayer, ServerPlayer, String, String)}'s javadoc — same
+     *  delegate-down convention and the same reason for it. */
+    default void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
         // Default implementation does nothing
     }
 

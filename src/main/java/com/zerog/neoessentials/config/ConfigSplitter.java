@@ -88,6 +88,7 @@ public class ConfigSplitter {
         put("scoreboard.json",    Collections.singletonList("scoreboard"));
         put("leaderboard.json",   Collections.singletonList("leaderboard"));
         put("templates/discord_embed.json", Collections.singletonList("discordEmbedTemplate"));
+        put("templates/discord_events.json", Collections.singletonList("discordEventChannels"));
     }};
 
     // Version for each split config file
@@ -137,6 +138,12 @@ public class ConfigSplitter {
         put("scoreboard.json",    1);
         put("leaderboard.json",   1);
         put("templates/discord_embed.json", 1);
+        put("templates/discord_events.json", 1);  // v1 — new file. discordEventChannels was
+                                        //       added directly to main.json's template (v51)
+                                        //       with no FILE_SECTIONS_MAP entry at all — same
+                                        //       "silently dropped on split" bug this map's other
+                                        //       comments already document for storage/
+                                        //       webDashboard — fixed before it could ship that way.
     }};
 
     /**

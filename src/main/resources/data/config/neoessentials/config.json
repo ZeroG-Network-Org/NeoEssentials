@@ -1293,5 +1293,24 @@
     "footerIconUrl": "",
     // Show the current time as the embed's timestamp
     "showTimestamp": false
+  },
+
+  /* ----------------------------------------------------------------
+     Per-event-type Discord channel routing. Chat already has this per
+     chat-channel (see chat.channels.<name>.discord.channelId above) — this
+     covers everything that ISN'T a chat message, since those events aren't
+     tied to any one NeoEssentials chat channel. Leave a channelId empty (or
+     enabled:false) to let whichever bridge mod (SDLink/Mc2Discord/
+     DCIntegration) route that event to its own natively-configured default
+     channel instead — this only overrides where NeoEssentials explicitly
+     routes an event when a channelId is actually set.
+  ---------------------------------------------------------------- */
+  "discordEventChannels": {
+    "join":        { "enabled": false, "channelId": "" },
+    "leave":       { "enabled": false, "channelId": "" },
+    "mute":        { "enabled": false, "channelId": "" },
+    "afk":         { "enabled": false, "channelId": "" },
+    "advancement": { "enabled": false, "channelId": "" },
+    "privateMessage": { "enabled": false, "channelId": "" }
   }
 }
