@@ -1,6 +1,7 @@
 package com.zerog.neoessentials.integrations.impl;
 
 import com.zerog.neoessentials.integrations.ChatIntegrationAdapter;
+import com.zerog.neoessentials.integrations.DiscordIdentityFormatter;
 import com.zerog.neoessentials.logging.LogCategory;
 import com.zerog.neoessentials.logging.NeoLog;
 import de.erdbeerbaerlp.dcintegration.common.DiscordIntegration;
@@ -84,7 +85,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying chat from '{}' in channel '{}' to Discord channel '{}'",
                 player.getName().getString(), channel, discordChannelId);
-            sendToChannel(discordChannelId, player.getName().getString() + ": " + cleanMessage);
+            sendToChannel(discordChannelId, DiscordIdentityFormatter.resolveNameWithRank(player) + ": " + cleanMessage);
         } catch (Throwable e) {
             // Catches Errors too — see JdaChannelSender's Javadoc for why a missing/incompatible
             // JDA on the classpath surfaces as a LinkageError here, not a plain Exception.
@@ -98,7 +99,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
         try {
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying join for '{}' to Discord channel '{}' (additive override — native relay untouched)",
                 player.getName().getString(), discordChannelId);
-            sendToChannel(discordChannelId, player.getName().getString() + " joined the server");
+            sendToChannel(discordChannelId, DiscordIdentityFormatter.resolveNameWithRank(player) + " joined the server");
         } catch (Throwable e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay join event via DCIntegration", e);
         }
@@ -110,7 +111,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
         try {
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying quit for '{}' to Discord channel '{}' (additive override — native relay untouched)",
                 player.getName().getString(), discordChannelId);
-            sendToChannel(discordChannelId, player.getName().getString() + " left the server");
+            sendToChannel(discordChannelId, DiscordIdentityFormatter.resolveNameWithRank(player) + " left the server");
         } catch (Throwable e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay quit event via DCIntegration", e);
         }
@@ -131,7 +132,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             NeoLog.debug(LOGGER, LogCategory.DISCORD, "DCIntegration: relaying advancement for '{}' to Discord channel '{}' (additive override — native relay untouched)",
                 player.getName().getString(), discordChannelId);
-            sendToChannel(discordChannelId, player.getName().getString() + " earned the advancement " + safeAdvancementName);
+            sendToChannel(discordChannelId, DiscordIdentityFormatter.resolveNameWithRank(player) + " earned the advancement " + safeAdvancementName);
         } catch (Throwable e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay advancement event via DCIntegration", e);
         }
@@ -152,7 +153,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
             String action = isMuted ? "muted" : "unmuted";
             String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = String.format("%s has been %s%s", player.getName().getString(), action,
+            String text = String.format("%s has been %s%s", DiscordIdentityFormatter.resolveNameWithRank(player), action,
                 safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
             sendToChannel(discordChannelId, text);
         } catch (Throwable e) {
@@ -168,7 +169,7 @@ public class DCIntegrationAdapter implements ChatIntegrationAdapter {
             String status = isAfk ? "is now AFK" : "is no longer AFK";
             String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = String.format("%s %s%s", player.getName().getString(), status,
+            String text = String.format("%s %s%s", DiscordIdentityFormatter.resolveNameWithRank(player), status,
                 (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
             sendToChannel(discordChannelId, text);
         } catch (Throwable e) {
