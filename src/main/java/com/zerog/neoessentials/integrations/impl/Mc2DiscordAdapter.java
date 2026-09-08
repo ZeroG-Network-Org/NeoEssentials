@@ -1,6 +1,7 @@
 package com.zerog.neoessentials.integrations.impl;
 
 import com.zerog.neoessentials.integrations.ChatIntegrationAdapter;
+import com.zerog.neoessentials.integrations.DiscordIdentityFormatter;
 import com.zerog.neoessentials.integrations.DiscordTextSanitizer;
 import com.zerog.neoessentials.logging.LogCategory;
 import com.zerog.neoessentials.logging.NeoLog;
@@ -170,11 +171,11 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
                 // silently end up wherever Mc2Discord's default chat channel is instead.
                 NeoLog.debug(LOGGER, LogCategory.DISCORD, "Mc2Discord: relaying chat from '{}' directly to Discord channel '{}'",
                     player.getName().getString(), discordChannelId);
-                sendToChannel(discordChannelId, player.getName().getString() + ": " + cleanMessage);
+                sendToChannel(discordChannelId, DiscordIdentityFormatter.resolveNameWithRank(player) + ": " + cleanMessage);
             } else if (!nativeChatEnabled) {
                 NeoLog.debug(LOGGER, LogCategory.DISCORD, "Mc2Discord: relaying chat from '{}' via default chat route",
                     player.getName().getString());
-                MessageManager.sendChatMessage(cleanMessage, player.getName().getString(), avatarFor(player)).subscribe();
+                MessageManager.sendChatMessage(cleanMessage, DiscordIdentityFormatter.resolveNameWithRank(player), avatarFor(player)).subscribe();
             }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay chat message via Mc2Discord", e);
@@ -229,7 +230,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     public void onPlayerJoin(ServerPlayer player, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " joined the server";
+            String text = DiscordIdentityFormatter.resolveNameWithRank(player) + " joined the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else if (!nativeJoinEnabled) {
@@ -244,7 +245,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     public void onPlayerQuit(ServerPlayer player, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " left the server";
+            String text = DiscordIdentityFormatter.resolveNameWithRank(player) + " left the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
             } else if (!nativeLeaveEnabled) {
@@ -259,7 +260,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     public void onPlayerAdvancement(ServerPlayer player, String advancementName, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " earned the advancement " +
+            String text = DiscordIdentityFormatter.resolveNameWithRank(player) + " earned the advancement " +
                 DiscordTextSanitizer.truncate(advancementName, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
@@ -277,7 +278,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
         try {
             String action = isMuted ? "muted" : "unmuted";
             String safeReason = DiscordTextSanitizer.truncate(reason, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = String.format("%s has been %s%s", player.getName().getString(), action,
+            String text = String.format("%s has been %s%s", DiscordIdentityFormatter.resolveNameWithRank(player), action,
                 safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
@@ -295,7 +296,7 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
         try {
             String status = isAfk ? "is now AFK" : "is no longer AFK";
             String safeReason = DiscordTextSanitizer.truncate(reason, DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = String.format("%s %s%s", player.getName().getString(), status,
+            String text = String.format("%s %s%s", DiscordIdentityFormatter.resolveNameWithRank(player), status,
                 (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendToChannel(discordChannelId, text);
@@ -315,12 +316,12 @@ public class Mc2DiscordAdapter implements ChatIntegrationAdapter {
     public void onPrivateMessage(ServerPlayer sender, ServerPlayer recipient, String message, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = String.format("Private message to %s: %s", recipient.getName().getString(),
+            String text = String.format("Private message to %s: %s", DiscordIdentityFormatter.resolveNameWithRank(recipient),
                 DiscordTextSanitizer.truncate(DiscordTextSanitizer.sanitizeMentions(message), DiscordTextSanitizer.DISCORD_TEXT_LIMIT));
             if (discordChannelId != null && !discordChannelId.isBlank()) {
-                sendToChannel(discordChannelId, sender.getName().getString() + ": " + text);
+                sendToChannel(discordChannelId, DiscordIdentityFormatter.resolveNameWithRank(sender) + ": " + text);
             } else {
-                MessageManager.sendInfoMessage("privateMessage", sender.getName().getString() + ": " + text).subscribe();
+                MessageManager.sendInfoMessage("privateMessage", DiscordIdentityFormatter.resolveNameWithRank(sender) + ": " + text).subscribe();
             }
         } catch (Exception e) {
             NeoLog.error(LOGGER, LogCategory.DISCORD, "Failed to relay private message via Mc2Discord", e);

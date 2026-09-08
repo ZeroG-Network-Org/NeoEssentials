@@ -198,7 +198,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
                         template.footerIconUrl,
                         template.showTimestamp);
                 } else {
-                    JdaBridge.sendPlain(discordChannelId, player.getName().getString() + ": " + cleanMessage);
+                    JdaBridge.sendPlain(discordChannelId, com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player) + ": " + cleanMessage);
                 }
             } else if (!nativeChatEnabled) {
                 NeoLog.debug(LOGGER, LogCategory.DISCORD, "SDLink: relaying chat from '{}' via default chat route",
@@ -241,7 +241,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         String resolve(String template, ServerPlayer player, String channel, String message) {
             if (template == null) return "";
             return template
-                .replace("{player}", player.getName().getString())
+                .replace("{player}", com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player))
                 .replace("{uuid}", player.getUUID().toString())
                 .replace("{message}", message)
                 .replace("{channel}", channel != null ? channel : "");
@@ -358,7 +358,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
             String action = isMuted ? "muted" : "unmuted";
             String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = String.format("%s has been %s%s", player.getName().getString(), action,
+            String text = String.format("%s has been %s%s", com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player), action,
                 safeReason != null && !safeReason.isEmpty() ? " (Reason: " + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendEventEmbedOrPlain("mute", discordChannelId, player, text, text);
@@ -377,7 +377,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
             String status = isAfk ? "is now AFK" : "is no longer AFK";
             String safeReason = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(reason,
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = String.format("%s %s%s", player.getName().getString(), status,
+            String text = String.format("%s %s%s", com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player), status,
                 (isAfk && safeReason != null && !safeReason.isEmpty()) ? " (" + safeReason + ")" : "");
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendEventEmbedOrPlain("afk", discordChannelId, player, text, text);
@@ -393,7 +393,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
     public void onPlayerJoin(ServerPlayer player, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " joined the server";
+            String text = com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player) + " joined the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 // Explicit channel override always sends, same convention as onPlayerChat's
                 // channel-override path — see detectNativeRelayConflicts()'s Javadoc for why an
@@ -411,7 +411,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
     public void onPlayerQuit(ServerPlayer player, String discordChannelId) {
         if (!isReady()) return;
         try {
-            String text = player.getName().getString() + " left the server";
+            String text = com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player) + " left the server";
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendEventEmbedOrPlain("leave", discordChannelId, player, "", text);
             } else if (!nativeLeaveEnabled) {
@@ -428,7 +428,7 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         try {
             String safeAdvancementName = com.zerog.neoessentials.integrations.DiscordTextSanitizer.truncate(advancementName,
                 com.zerog.neoessentials.integrations.DiscordTextSanitizer.DISCORD_TEXT_LIMIT);
-            String text = player.getName().getString() + " earned the advancement " + safeAdvancementName;
+            String text = com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player) + " earned the advancement " + safeAdvancementName;
             if (discordChannelId != null && !discordChannelId.isBlank()) {
                 sendEventEmbedOrPlain("advancement", discordChannelId, player, safeAdvancementName, text);
             } else if (!nativeAdvancementEnabled) {
@@ -479,8 +479,19 @@ public class SDLinkAdapter implements ChatIntegrationAdapter {
         return List.copyOf(nativeRelayWarnings);
     }
 
+    /**
+     * The first argument here is SDLink's own {@code %display_name%} source (see
+     * {@code DiscordAuthor.getDisplayName()} — a plain passthrough of whatever we supply, not
+     * independently resolved by SDLink itself). Deliberately NOT {@code player.getDisplayName()}
+     * — see {@link com.zerog.neoessentials.integrations.DiscordIdentityFormatter}'s Javadoc for
+     * why. The third argument ({@code %mc_name%}) stays the bare username on purpose, so admins
+     * who want the raw Minecraft name specifically (e.g. for @-mentions or search) still have it.
+     */
     private DiscordAuthor authorFor(ServerPlayer player) {
-        return DiscordAuthor.of(player.getName().getString(), player.getUUID().toString(), player.getName().getString());
+        return DiscordAuthor.of(
+            com.zerog.neoessentials.integrations.DiscordIdentityFormatter.resolveNameWithRank(player),
+            player.getUUID().toString(),
+            player.getName().getString());
     }
 
     @Override
