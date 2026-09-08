@@ -348,15 +348,19 @@ If you'd rather have a different mod/plugin manage nametags entirely, set
 `nametagSettings.enabled` to `false` — NeoEssentials will still use the scoreboard team for
 tablist sorting/columns, it just won't set any prefix/suffix on it.
 
-> **Discord chat-bridge mods showing the rank prefix twice?** Vanilla Minecraft automatically
-> folds a scoreboard team's prefix/suffix into `Player.getDisplayName()` for any mod to read.
-> Some Discord bridges (e.g. SimpleDiscordLink's `%display_name%`/rank-sync) read that
-> already-prefixed display name AND separately re-resolve the same rank prefix themselves,
-> showing it twice in Discord even though it's correct in-game chat. Setting
-> `nametagSettings.enabled: false` here stops NeoEssentials from writing the prefix onto the
-> vanilla team at all, which starves that kind of integration of the pre-decorated name —
-> in-game chat is completely unaffected, since chat's own prefix comes from `chat.json`'s
-> `{ftbranks_prefix}`/`{neoessentials_prefix}` placeholders, a separate mechanism entirely.
+> **Discord chat-bridge mods showing the rank prefix twice?** As of build 68, this no longer
+> requires disabling the nametag prefix at all — see
+> [Discord Integration](ChatSystem.md#discord-integration-simple-discord-link) for the real fix.
+> The short version: vanilla Minecraft folds a scoreboard team's prefix/suffix into
+> `Player.getDisplayName()` for any mod to read, and some Discord bridges (e.g. SDLink's
+> `%display_name%`/rank-sync) read that already-prefixed name AND separately re-resolve the
+> same rank prefix themselves, doubling it in Discord even though it's correct in-game and in
+> the nametag/tab-list. NeoEssentials' own Discord messages now resolve the prefix independently
+> (via the permission system directly, not the vanilla team), so they can never double — pair
+> that with disabling the bridge mod's own *native* relay (its conflict detection already warns
+> you when this applies) and Discord shows a single correct prefix with the nametag/tab-list
+> completely unaffected. `nametagSettings.enabled: false` is only still relevant if you want a
+> *different* mod/plugin to own nametags entirely — not as a Discord workaround anymore.
 
 ---
 
