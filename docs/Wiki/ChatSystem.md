@@ -690,6 +690,34 @@ needed, unlike a newly-installed bridge mod.
 > (`discordChannelId` set) always still goes through regardless. Remove the relevant subscription
 > from `mc2discord.toml` and restart if you'd rather NeoEssentials format that event instead.
 
+### Rank prefix showing twice in Discord?
+
+If a player's rank prefix appears doubled in Discord (e.g. `[Owner] [Owner] Name`) even though
+it's correct in-game and in the tab-list, this is caused by a bridge mod's own **native** relay
+(not anything NeoEssentials sends) — it independently reads `Player.getDisplayName()` (which
+already carries whatever prefix NeoEssentials wrote onto the vanilla scoreboard team for the
+nametag/tab-list, see [TablistSystem](TablistSystem.md)) and *also* separately re-resolves the
+same rank prefix itself (SDLink does this via its own LuckPerms/FTBRanks integration) — stacking
+both.
+
+As of build 68, NeoEssentials' own Discord messages resolve the prefix independently — straight
+from the permission system, the same source chat formatting already uses — instead of the
+vanilla team, so they can never double no matter what the nametag/tab-list shows. Combined with
+the native-relay conflict detection above (which suppresses NeoEssentials' own send once a
+bridge mod's native relay is confirmed active for that event), the fix is:
+
+1. Check the startup log (or the dashboard's Discord status panel) for a native-relay-conflict
+   warning naming the event that's doubling.
+2. Disable that specific native relay key in the bridge mod's own config (see the two notes
+   above for SDLink/Mc2Discord's exact config keys) and restart.
+3. NeoEssentials' own send — now with the correctly single-resolved prefix — becomes the sole
+   source for that event, unaffected by whatever the vanilla team/nametag is doing.
+
+The floating nametag itself can't be decoupled from the vanilla scoreboard team for a
+server-only mod (this was investigated directly against Minecraft's own decompiled rendering
+code) — `nametagSettings.enabled: false` is only relevant if you want a different mod/plugin to
+own nametags entirely, not as a Discord workaround.
+
 ### Discord Role → Permission Group Sync
 
 Separate from the chat/event relay above — see `discordrolesync.json`. Maps a Discord role's
