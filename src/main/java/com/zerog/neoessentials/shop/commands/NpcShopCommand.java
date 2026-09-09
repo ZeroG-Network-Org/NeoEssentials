@@ -1,6 +1,7 @@
 package com.zerog.neoessentials.shop.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -11,7 +12,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 
 import java.math.BigDecimal;
@@ -30,7 +31,15 @@ import java.util.UUID;
  *   /npcshop info <shopId>                       — info about one shop
  *   /npcshop reload                              — reload npc_shops.json
  *   /npcshop respawn <shopId>                    — re-summon a lost NPC entity
+ *   /npcshop entitytype <shopId> <entityType> <ai> — change entity type / AI mode (respawns it)
  * </pre>
+ *
+ * <p>{@code <entityType>} accepts any registered entity type id, vanilla or from another
+ * installed mod (e.g. {@code minecraft:villager}), not just the default {@code minecraft:armor_stand}
+ * — see {@link ShopNpcEntity}'s javadoc for why that's safe. {@code <ai>} only matters when the
+ * type is a {@link net.minecraft.world.entity.Mob}: {@code true} leaves its normal AI running
+ * (leashed to its spawn point so it can't wander off), {@code false} freezes it in place exactly
+ * like the default ArmorStand.
  *
  * All sub-commands require {@code neoessentials.shop.npc.manage}.
  */
@@ -89,6 +98,17 @@ public class NpcShopCommand {
                                 .suggests(NpcShopCommand::suggestShopIds)
                                 .executes(ctx -> executeRespawn(ctx.getSource(),
                                         StringArgumentType.getString(ctx, "shopId")))))
+                .then(Commands.literal("entitytype")
+                        .then(Commands.argument("shopId", StringArgumentType.word())
+                                .suggests(NpcShopCommand::suggestShopIds)
+                                .then(Commands.argument("entityType", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                                net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.keySet().stream().map(Object::toString), builder))
+                                        .then(Commands.argument("ai", BoolArgumentType.bool())
+                                                .executes(ctx -> executeEntityType(ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "shopId"),
+                                                        StringArgumentType.getString(ctx, "entityType"),
+                                                        BoolArgumentType.getBool(ctx, "ai")))))))
                 .executes(ctx -> executeHelp(ctx.getSource()));
 
         dispatcher.register(node);
@@ -116,8 +136,11 @@ public class NpcShopCommand {
             shopData.spawnY    = player.getY();
             shopData.spawnZ    = player.getZ();
 
-            // Spawn a vanilla ArmorStand — no custom EntityType needed client-side
-            ArmorStand npc = ShopNpcEntity.create(com.zerog.neoessentials.util.LevelCompat.of(player), shopData.shopId, name);
+            // Spawn a vanilla ArmorStand by default — no custom EntityType needed client-side.
+            // Use /npcshop entitytype afterward to switch to a different (vanilla or modded)
+            // entity type and/or enable its AI.
+            Entity npc = ShopNpcEntity.create(com.zerog.neoessentials.util.LevelCompat.of(player), shopData.shopId, name,
+                    shopData.entityTypeId, shopData.aiEnabled);
             npc.setPos(player.getX(), player.getY(), player.getZ());
             shopData.entityUUID = npc.getUUID();
 
@@ -139,9 +162,9 @@ public class NpcShopCommand {
         try {
             ServerPlayer player = src.getPlayerOrException();
 
-            // Find nearest NeoEssentials shop ArmorStand within 5 blocks
-            List<ArmorStand> nearby = com.zerog.neoessentials.util.LevelCompat.of(player).getEntitiesOfClass(
-                    ArmorStand.class,
+            // Find nearest NeoEssentials shop entity (any type) within 5 blocks
+            List<Entity> nearby = com.zerog.neoessentials.util.LevelCompat.of(player).getEntitiesOfClass(
+                    Entity.class,
                     new AABB(player.getX() - 5, player.getY() - 5, player.getZ() - 5,
                              player.getX() + 5, player.getY() + 5, player.getZ() + 5),
                     ShopNpcEntity::isShopNpc);
@@ -151,7 +174,7 @@ public class NpcShopCommand {
                 return 0;
             }
 
-            ArmorStand target = nearby.getFirst();
+            Entity target = nearby.getFirst();
             UUID shopId = ShopNpcEntity.getShopId(target);
             target.discard();
 
@@ -261,11 +284,12 @@ public class NpcShopCommand {
     // ── /npcshop respawn <shopId> ─────────────────────────────────────────────
 
     /**
-     * Re-summon the NPC entity for an existing shop whose ArmorStand was lost
+     * Re-summon the NPC entity for an existing shop whose entity was lost
      * (e.g. killed by void damage, which bypasses {@code setInvulnerable}, or removed
      * by an unrelated admin/anticheat command) without losing its listings — the
      * listings live in {@link ShopEntityData}, keyed by {@code shopId}, independent
-     * of the in-world entity.
+     * of the in-world entity. Re-summons using the shop's current
+     * {@link ShopEntityData#entityTypeId}/{@link ShopEntityData#aiEnabled}.
      */
     private static int executeRespawn(CommandSourceStack src, String shopIdStr) {
         ShopEntityData shop = resolve(src, shopIdStr);
@@ -287,12 +311,62 @@ public class NpcShopCommand {
             return 0;
         }
 
-        ArmorStand npc = ShopNpcEntity.create(level, shop.shopId, shop.shopName);
+        Entity npc = ShopNpcEntity.create(level, shop.shopId, shop.shopName, shop.entityTypeId, shop.aiEnabled);
         npc.setPos(shop.spawnX, shop.spawnY, shop.spawnZ);
         level.addFreshEntity(npc);
         ShopEntityManager.getInstance().updateEntityUUID(shop.shopId, npc.getUUID());
 
         src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.respawn_success", shop.shopName), true);
+        return 1;
+    }
+
+    // ── /npcshop entitytype <shopId> <entityType> <ai> ───────────────────────────
+
+    /**
+     * Changes an existing shop's entity type and/or AI mode — vanilla or from any other
+     * installed mod, see {@link ShopNpcEntity}'s javadoc for why that's safe. Despawns the
+     * shop's current in-world entity (if present) and immediately respawns it with the new
+     * settings at the same position, so the change is visible without a separate
+     * {@code /npcshop respawn}.
+     */
+    private static int executeEntityType(CommandSourceStack src, String shopIdStr, String entityTypeId, boolean aiEnabled) {
+        ShopEntityData shop = resolve(src, shopIdStr);
+        if (shop == null) return 0;
+
+        if (!ShopNpcEntity.isValidEntityTypeId(entityTypeId)) {
+            src.sendFailure(MessageUtil.component("commands.neoessentials.npcshop.entitytype_unknown", entityTypeId));
+            return 0;
+        }
+
+        shop.entityTypeId = entityTypeId;
+        shop.aiEnabled = aiEnabled;
+        ShopEntityManager.getInstance().register(shop);
+
+        var server = src.getServer();
+        ServerLevel level = null;
+        for (ServerLevel l : server.getAllLevels()) {
+            if (l.dimension().identifier().toString().equals(shop.dimension)) { level = l; break; }
+        }
+        if (level == null) {
+            // Data saved either way — the new type/AI will apply next time the shop is
+            // respawned in a loaded dimension.
+            src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.entitytype_success_no_respawn",
+                    shop.shopName, entityTypeId), true);
+            return 1;
+        }
+
+        if (shop.entityUUID != null) {
+            Entity old = level.getEntity(shop.entityUUID);
+            if (old != null) old.discard();
+        }
+
+        Entity npc = ShopNpcEntity.create(level, shop.shopId, shop.shopName, shop.entityTypeId, shop.aiEnabled);
+        npc.setPos(shop.spawnX, shop.spawnY, shop.spawnZ);
+        level.addFreshEntity(npc);
+        ShopEntityManager.getInstance().updateEntityUUID(shop.shopId, npc.getUUID());
+
+        src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.entitytype_success",
+                shop.shopName, entityTypeId, aiEnabled), true);
         return 1;
     }
 
@@ -308,6 +382,7 @@ public class NpcShopCommand {
         src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.help_info"), false);
         src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.help_reload"), false);
         src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.help_respawn"), false);
+        src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.help_entitytype"), false);
         src.sendSuccess(() -> MessageUtil.component("commands.neoessentials.npcshop.help_price_hint"), false);
         return 1;
     }

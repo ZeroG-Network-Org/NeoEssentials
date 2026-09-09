@@ -164,6 +164,8 @@ public class ShopEntityManager {
         o.addProperty("spawnY", d.spawnY);
         o.addProperty("spawnZ", d.spawnZ);
         o.addProperty("economyEnabled", d.economyEnabled);
+        o.addProperty("entityTypeId", d.entityTypeId);
+        o.addProperty("aiEnabled", d.aiEnabled);
         JsonArray listings = new JsonArray();
         for (ShopListing l : d.listings) {
             JsonObject lo = new JsonObject();
@@ -188,6 +190,8 @@ public class ShopEntityManager {
         d.spawnY = o.has("spawnY") ? o.get("spawnY").getAsDouble() : 0;
         d.spawnZ = o.has("spawnZ") ? o.get("spawnZ").getAsDouble() : 0;
         d.economyEnabled = !o.has("economyEnabled") || o.get("economyEnabled").getAsBoolean();
+        d.entityTypeId = str(o, "entityTypeId");
+        d.aiEnabled = o.has("aiEnabled") && o.get("aiEnabled").getAsBoolean();
         d.listings = new ArrayList<>();
         if (o.has("listings") && o.get("listings").isJsonArray()) {
             for (JsonElement el : o.getAsJsonArray("listings")) {

@@ -1,11 +1,14 @@
 package com.zerog.neoessentials.util;
 
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.UUID;
 
 /**
  * {@link CompoundTag} accessors with an explicit default value.
@@ -60,6 +63,25 @@ public final class CompoundTagCompat {
 
     public static CompoundTag getCompound(CompoundTag tag, String key) {
         return tag.getCompoundOrEmpty(key);
+    }
+
+    /**
+     * 26.1 port: {@code CompoundTag} has no {@code putUUID}/{@code hasUUID}/{@code getUUID(String)}
+     * on this version — only the {@link net.minecraft.nbt.IntArrayTag}-backed
+     * {@code putIntArray}/{@code getIntArray} survive across both 1.21.1 and 26.1, so these three
+     * helpers store a UUID as an int array via {@link UUIDUtil} instead, working identically on
+     * both versions rather than relying on either's native UUID tag methods.
+     */
+    public static void putUUID(CompoundTag tag, String key, UUID value) {
+        tag.putIntArray(key, UUIDUtil.uuidToIntArray(value));
+    }
+
+    public static boolean hasUUID(CompoundTag tag, String key) {
+        return tag.getIntArray(key).isPresent();
+    }
+
+    public static UUID getUUID(CompoundTag tag, String key) {
+        return tag.getIntArray(key).map(UUIDUtil::uuidFromIntArray).orElse(null);
     }
 
     /**
